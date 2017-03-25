@@ -41,9 +41,9 @@ public class PostService extends DBConnect {
     }
 
     private Post getPost(BigDecimal id) throws SQLException{
-        return PrepareQuery.execute("SELECT M.*, F.slug FROM public.\"Message\" AS M " +
-                        "JOIN public.\"Thread\" AS T USING(thread_id) " +
-                        "JOIN public.\"Forum\" AS F ON F.slug = T.forum " +
+        return PrepareQuery.execute("SELECT M.*, F.slug FROM Message AS M " +
+                        "JOIN Thread AS T USING(thread_id) " +
+                        "JOIN Forum AS F ON F.slug = T.forum " +
                         "WHERE message_id = ?",
                 preparedStatement -> {
                     preparedStatement.setBigDecimal(1, id);
@@ -118,16 +118,16 @@ public class PostService extends DBConnect {
                         ", parent, thread, path ) AS (" +
                         " (SELECT M.author, M.create_date, F.slug, M.message_id, M.is_edit, M.message, M.parent_id, " +
                         "M.thread_id, array[M.message_id] " +
-                        "FROM public.\"Message\" AS M " +
-                        "JOIN public.\"Thread\"  AS T USING(thread_id) JOIN public.\"Forum\" AS F " +
+                        "FROM Message AS M " +
+                        "JOIN Thread  AS T USING(thread_id) JOIN Forum AS F " +
                         "ON F.slug = T.forum" +
                         " WHERE " + req + " and M.parent_id is null " + sort1 +
                         ") UNION ALL" +
                         " SELECT Mm.author, Mm.create_date, Ff.slug, Mm.message_id, Mm.is_edit, " +
                         "Mm.message, Mm.parent_id, Mm.thread_id, " +
                         "array_append(path, Mm.message_id) " +
-                        "FROM public.\"Message\" AS Mm " +
-                        "JOIN public.\"Thread\"  AS Tt USING(thread_id) JOIN public.\"Forum\" " +
+                        "FROM Message AS Mm " +
+                        "JOIN Thread  AS Tt USING(thread_id) JOIN Forum " +
                         "AS Ff ON Ff.slug = Tt.forum " +
                         "JOIN rtree AS rt ON rt.id = Mm.parent_id ) " +
                         "SELECT r.*, array_to_string(path, '.') as path1 FROM rtree AS r " +
@@ -136,8 +136,8 @@ public class PostService extends DBConnect {
             } else {
                 return getPostsSort("SELECT M.author, M.create_date, F.slug, M.message_id, M.is_edit, " +
                         "M.message, M.parent_id,  M.thread_id " +
-                        " FROM public.\"Message\" AS M  " +
-                        " JOIN public.\"Thread\"  AS T USING(thread_id) JOIN public.\"Forum\" AS F " +
+                        " FROM Message AS M  " +
+                        " JOIN Thread  AS T USING(thread_id) JOIN Forum AS F " +
                         " ON F.slug = T.forum" +
                         " WHERE " + req + " ORDER BY M.create_date, M.message_id " + strSort + strLimit + strMarker,
                         id, slug);
@@ -154,7 +154,7 @@ public class PostService extends DBConnect {
         String req = "lower(slug) = lower(?)";
         if (thread_id != null)
             req = "thread_id = ?";
-        final int t_id = PrepareQuery.execute("SELECT thread_id FROM public.\"Thread\" WHERE " + req,
+        final int t_id = PrepareQuery.execute("SELECT thread_id FROM Thread WHERE " + req,
                 preparedStatement -> {
                     if (thread_id != null) {
                         preparedStatement.setInt(1, thread_id);
@@ -165,8 +165,8 @@ public class PostService extends DBConnect {
                     return resultSet.getInt(1);
                 });
         if (body.getParent().intValue() != 0) {
-            PrepareQuery.execute("SELECT M.message_id FROM public.\"Message\" AS M " +
-                            "JOIN public.\"Thread\" as T USING(thread_id) " +
+            PrepareQuery.execute("SELECT M.message_id FROM Message AS M " +
+                            "JOIN Thread as T USING(thread_id) " +
                             "WHERE M.message_id = ? and T.thread_id = ?",
                     preparedStatement -> {
                         preparedStatement.setBigDecimal(1, body.getParent());
@@ -178,8 +178,8 @@ public class PostService extends DBConnect {
                     });
         }
         final String forum = PrepareQuery.execute("SELECT F.slug FROM " +
-                        "public.\"Thread\" as T  " +
-                        "JOIN public.\"Forum\" as F ON T.forum = F.slug WHERE T.thread_id = ?",
+                        "Thread as T  " +
+                        "JOIN Forum as F ON T.forum = F.slug WHERE T.thread_id = ?",
                 preparedStatement -> {
                     preparedStatement.setInt(1, t_id);
                     ResultSet resultSet = preparedStatement.executeQuery();
@@ -192,7 +192,7 @@ public class PostService extends DBConnect {
             throw new SQLException("Not found");
         }
         try {
-            return PrepareQuery.execute("INSERT INTO public.\"Message\" (thread_id, message, author, create_date, parent_id) " +
+            return PrepareQuery.execute("INSERT INTO Message (thread_id, message, author, create_date, parent_id) " +
                             "VALUES (?,?,?,?,?) RETURNING message_id",
                     preparedStatement -> {
                         preparedStatement.setInt(1, t_id);
@@ -275,7 +275,7 @@ public class PostService extends DBConnect {
         try {
             Post post = getPost(id);
             if (body.getMessage() != null && !post.getMessage().equals(body.getMessage())) {
-                return PrepareQuery.execute("UPDATE public.\"Message\" SET (message, is_edit) = (?, true) " +
+                return PrepareQuery.execute("UPDATE Message SET (message, is_edit) = (?, true) " +
                                 "WHERE message_id = ?",
                         preparedStatement -> {
                             preparedStatement.setString(1, body.getMessage());

@@ -33,7 +33,7 @@ public class UserService extends DBConnect{
 
     public ResponseEntity createUser(User body){
         try {
-            return PrepareQuery.execute("SELECT * FROM public.\"User\" AS U " +
+            return PrepareQuery.execute("SELECT * FROM FUser AS U " +
                             "WHERE lower(U.email) = lower(?) OR lower(nickname) = lower(?)",
                     preparedStatement -> {
                         preparedStatement.setString(1, body.getEmail());
@@ -58,7 +58,7 @@ public class UserService extends DBConnect{
         catch (SQLException e){
             e.printStackTrace();
             try {
-               return PrepareQuery.execute("INSERT INTO public.\"User\" VALUES ( ?,?,?,?) ",
+               return PrepareQuery.execute("INSERT INTO FUser VALUES ( ?,?,?,?) ",
                         preparedStatement -> {
                             preparedStatement.setString(1, body.getNickname());
                             preparedStatement.setString(2, body.getEmail());
@@ -78,7 +78,7 @@ public class UserService extends DBConnect{
 
     public User getUserInfo (String login){
         try{
-            return PrepareQuery.execute("SELECT * FROM public.\"User\" WHERE lower(nickname) = lower(?)",
+            return PrepareQuery.execute("SELECT * FROM FUser WHERE lower(nickname) = lower(?)",
                     prepareStatement -> {
                         prepareStatement.setString(1, login);
                         ResultSet result = prepareStatement.executeQuery();
@@ -98,7 +98,7 @@ public class UserService extends DBConnect{
 
     public ResponseEntity  changeUserInfo(String login, User body){
         try {
-            User userInfo = PrepareQuery.execute("SELECT * FROM public.\"User\" " +
+            User userInfo = PrepareQuery.execute("SELECT * FROM FUser " +
                             "WHERE lower(nickname) = lower(?)",
                     ps ->{
                         ps.setString(1, login);
@@ -110,7 +110,7 @@ public class UserService extends DBConnect{
                     });
 
             try {
-                return PrepareQuery.execute("UPDATE public.\"User\" SET (about, email,fullname) = (?,?,?) " +
+                return PrepareQuery.execute("UPDATE FUser SET (about, email,fullname) = (?,?,?) " +
                                 "WHERE lower(nickname) = lower(?)",
                         ps2 ->{
                             if(body.getAbout() == null){

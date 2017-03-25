@@ -1,6 +1,5 @@
 package ru.mail.park.Thread;
 
-import com.sun.istack.internal.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,18 +11,10 @@ import ru.mail.park.db.DBConnect;
 import ru.mail.park.db.PrepareQuery;
 
 import javax.sql.DataSource;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.SQLType;
 import java.sql.Timestamp;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Calendar;
-import java.util.TimeZone;
 
 /**
  * Created by Варя on 16.03.2017.
@@ -42,8 +33,8 @@ public class ThreadService extends DBConnect {
             String req = "lower(T.slug) = lower(?)";
             if (t_id != null)
                 req = "T.thread_id = ?";
-            return PrepareQuery.execute("SELECT T.*, SUM(L.mark), F.slug  FROM public.\"Thread\" AS T " +
-                            " LEFT JOIN public.\"Like\"  AS L ON L.thread_id = T.thread_id JOIN public.\"Forum\" AS F " +
+            return PrepareQuery.execute("SELECT T.*, SUM(L.mark), F.slug  FROM Thread AS T " +
+                            " LEFT JOIN TLike  AS L ON L.thread_id = T.thread_id JOIN Forum AS F " +
                             "ON F.slug = T.forum" +
                             " WHERE " + req +
                             " GROUP BY T.thread_id, F.slug",
@@ -76,14 +67,14 @@ public class ThreadService extends DBConnect {
         String forum;
         String nickname;
         try {
-            forum = PrepareQuery.execute("SELECT slug FROM public.\"Forum\" WHERE lower(slug) = lower(?)",
+            forum = PrepareQuery.execute("SELECT slug FROM Forum WHERE lower(slug) = lower(?)",
                     preparedStatement -> {
                         preparedStatement.setString(1, slug);
                         ResultSet resultSet = preparedStatement.executeQuery();
                         resultSet.next();
                         return resultSet.getString(1);
                     });
-            nickname = PrepareQuery.execute("SELECT nickname FROM public.\"User\" WHERE lower(nickname) = lower(?)",
+            nickname = PrepareQuery.execute("SELECT nickname FROM FUser WHERE lower(nickname) = lower(?)",
                     preparedStatement -> {
                         preparedStatement.setString(1, body.getAuthor());
                         ResultSet resultSet = preparedStatement.executeQuery();
@@ -94,7 +85,7 @@ public class ThreadService extends DBConnect {
             try {
                 Thread responseEntity = getThreadInfo(body.getSlug(), null);
                 if (responseEntity == null) {
-                    PrepareQuery.execute("INSERT INTO public.\"Thread\" (author, slug, message, title, forum, create_date) " +
+                    PrepareQuery.execute("INSERT INTO Thread (author, slug, message, title, forum, create_date) " +
                                     "VALUES (?,?,?,?,?,?) RETURNING thread_id",
                             preparedStatement -> {
                                 preparedStatement.setString(1, nickname);
@@ -136,7 +127,7 @@ public class ThreadService extends DBConnect {
             String req = "lower(slug) = lower(?)";
             if (thread_id != null)
                 req = "thread_id = ?";
-            t_id = PrepareQuery.execute("SELECT thread_id FROM public.\"Thread\" WHERE " + req,
+            t_id = PrepareQuery.execute("SELECT thread_id FROM Thread WHERE " + req,
                     preparedStatement -> {
                         if (thread_id != null) {
                             preparedStatement.setInt(1, thread_id);
@@ -151,7 +142,7 @@ public class ThreadService extends DBConnect {
                 throw new SQLException("User not found");
             }
             try {
-                int num = PrepareQuery.execute("UPDATE public.\"Like\" SET mark = ? WHERE author = ? and thread_id = ?",
+                int num = PrepareQuery.execute("UPDATE TLike SET mark = ? WHERE author = ? and thread_id = ?",
                         preparedStatement -> {
                             preparedStatement.setString(2, body.getAuthor());
                             preparedStatement.setInt(3, t_id);
@@ -160,7 +151,7 @@ public class ThreadService extends DBConnect {
                             return col;
                         });
                 if (num == 0) {
-                    PrepareQuery.execute("INSERT INTO public.\"Like\" values(?, ?, ?)",
+                    PrepareQuery.execute("INSERT INTO TLike values(?, ?, ?)",
                             preparedStatement -> {
                                 preparedStatement.setString(1, body.getAuthor());
                                 preparedStatement.setInt(2, t_id);
@@ -184,7 +175,7 @@ public class ThreadService extends DBConnect {
         Thread thread = getThreadInfo(slug, id);
         if (thread != null) {
             try {
-                return PrepareQuery.execute("UPDATE public.\"Thread\" SET (message, title) = (?,?) " +
+                return PrepareQuery.execute("UPDATE Thread SET (message, title) = (?,?) " +
                                 "WHERE thread_id = ?",
                         ps2 -> {
                             if (body.getMessage() == null) {

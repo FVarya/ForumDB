@@ -36,8 +36,8 @@ public class ForumService extends DBConnect {
     public Forum getForumInfo(String slug) {
         final Forum forum = new Forum();
         try {
-            PrepareQuery.execute("SELECT slug, title, nickname FROM public.\"Forum\" " +
-                            "JOIN public.\"User\" ON admin = nickname WHERE lower(slug) = lower(?) ",
+            PrepareQuery.execute("SELECT slug, title, nickname FROM Forum " +
+                            "JOIN FUser ON admin = nickname WHERE lower(slug) = lower(?) ",
                     prepareStatement -> {
                         prepareStatement.setString(1, slug);
                         ResultSet resultSet = prepareStatement.executeQuery();
@@ -47,8 +47,8 @@ public class ForumService extends DBConnect {
                         forum.setAdmin(resultSet.getString(3));
                         return null;
                     });
-            return PrepareQuery.execute("SELECT COUNT(message_id), COUNT(DISTINCT thread_id) FROM public.\"Thread\" " +
-                            "LEFT JOIN  public.\"Message\" USING(thread_id) WHERE forum = ? ",
+            return PrepareQuery.execute("SELECT COUNT(message_id), COUNT(DISTINCT thread_id) FROM Thread " +
+                            "LEFT JOIN  Message USING(thread_id) WHERE forum = ? ",
                     prepareStatement -> {
                         prepareStatement.setString(1, slug);
                         final ResultSet resultSet = prepareStatement.executeQuery();
@@ -69,7 +69,7 @@ public class ForumService extends DBConnect {
     public ResponseEntity createForum(Forum body) {
         String nickname;
         try {
-            nickname = PrepareQuery.execute("SELECT nickname FROM public.\"User\" WHERE lower(nickname) = lower(?)",
+            nickname = PrepareQuery.execute("SELECT nickname FROM FUser WHERE lower(nickname) = lower(?)",
                     prepareStatement -> {
                         prepareStatement.setString(1, body.getAdmin());
                         ResultSet result = prepareStatement.executeQuery();
@@ -83,7 +83,7 @@ public class ForumService extends DBConnect {
         try {
             Forum forum = getForumInfo(body.getSlug());
             if(forum == null){
-                return PrepareQuery.execute("INSERT INTO public.\"Forum\" VALUES ( ?,?,?)" ,
+                return PrepareQuery.execute("INSERT INTO Forum VALUES ( ?,?,?)" ,
                         prepareStatement -> {
                             prepareStatement.setString(1, body.getSlug());
                             prepareStatement.setString(2, body.getTitle());
@@ -107,7 +107,7 @@ public class ForumService extends DBConnect {
 
     public ResponseEntity userList(String slug, Double limit, String since, Boolean desc){
         try {
-            PrepareQuery.execute("SELECT slug FROM public.\"Forum\" WHERE lower(slug) = lower(?) ",
+            PrepareQuery.execute("SELECT slug FROM Forum WHERE lower(slug) = lower(?) ",
                     prepareStatement -> {
                         prepareStatement.setString(1, slug);
                         ResultSet resultSet = prepareStatement.executeQuery();
@@ -128,9 +128,9 @@ public class ForumService extends DBConnect {
                 if (desc)
                     strSort = " DESC ";
                 System.out.println(strSince + strLimit + " ORDER BY U.nickname " + strSort);
-               return PrepareQuery.execute("SELECT DISTINCT U.* FROM public.\"Thread\" AS T " +
-                               "LEFT JOIN public.\"Message\"  AS M ON M.thread_id = T.thread_id " +
-                               "JOIN public.\"User\" AS U ON (U.nickname = M.author OR U.nickname = T.author) " +
+               return PrepareQuery.execute("SELECT DISTINCT U.* FROM Thread AS T " +
+                               "LEFT JOIN Message  AS M ON M.thread_id = T.thread_id " +
+                               "JOIN FUser AS U ON (U.nickname = M.author OR U.nickname = T.author) " +
                                 " WHERE lower(T.forum) = lower(?) " + strSince + " ORDER BY U.nickname " + strSort + strLimit ,
                         preparedStatement -> {
                             preparedStatement.setString(1, slug);
@@ -161,7 +161,7 @@ public class ForumService extends DBConnect {
 
     public ResponseEntity threadList(String slug, Double limit, String since, Boolean desc){
         try {
-            String forum = PrepareQuery.execute("SELECT slug FROM public.\"Forum\" WHERE lower(slug) = lower(?) ",
+            String forum = PrepareQuery.execute("SELECT slug FROM Forum WHERE lower(slug) = lower(?) ",
                     prepareStatement -> {
                         prepareStatement.setString(1, slug);
                         ResultSet resultSet = prepareStatement.executeQuery();
@@ -183,7 +183,7 @@ public class ForumService extends DBConnect {
                     strLimit = " LIMIT " + limit;
                 if (desc)
                     strSort = " DESC";
-                return PrepareQuery.execute("SELECT * FROM public.\"Thread\" WHERE forum = ?"
+                return PrepareQuery.execute("SELECT * FROM Thread WHERE forum = ?"
                                 + strSince + " ORDER BY create_date " + strSort + strLimit ,
                         preparedStatement -> {
                             preparedStatement.setString(1, forum);

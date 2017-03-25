@@ -25,22 +25,22 @@ public class ServiceService extends DBConnect {
 
     public ResponseEntity serviceStatus(){
         try {
-            int user = SelectQuery.execute("SELECT count(nickname) FROM public.\"User\"",
+            int user = SelectQuery.execute("SELECT count(nickname) FROM FUser",
                     resultSet -> {
                         resultSet.next();
                         return resultSet.getInt(1);
                     });
-            int forum = SelectQuery.execute("SELECT count(slug) FROM public.\"Forum\"",
+            int forum = SelectQuery.execute("SELECT count(slug) FROM Forum",
                     resultSet -> {
                         resultSet.next();
                         return resultSet.getInt(1);
                     });
-            int thread = SelectQuery.execute("SELECT count(thread_id) FROM public.\"Thread\"",
+            int thread = SelectQuery.execute("SELECT count(thread_id) FROM Thread",
                     resultSet -> {
                         resultSet.next();
                         return resultSet.getInt(1);
                     });
-            int post = SelectQuery.execute("SELECT count(message_id) FROM public.\"Message\"",
+            int post = SelectQuery.execute("SELECT count(message_id) FROM Message",
                     resultSet -> {
                         resultSet.next();
                         return resultSet.getInt(1);
@@ -56,11 +56,11 @@ public class ServiceService extends DBConnect {
 
     public ResponseEntity serviceClear(){
         try {
-            UpdateQuery.execute("DELETE FROM public.\"Like\"");
-            UpdateQuery.execute("DELETE FROM public.\"Message\"");
-            UpdateQuery.execute("DELETE FROM public.\"Thread\"");
-            UpdateQuery.execute("DELETE FROM public.\"Forum\"");
-            UpdateQuery.execute("DELETE FROM public.\"User\"");
+            UpdateQuery.execute("DELETE FROM TLike");
+            UpdateQuery.execute("DELETE FROM Message");
+            UpdateQuery.execute("DELETE FROM Thread");
+            UpdateQuery.execute("DELETE FROM Forum");
+            UpdateQuery.execute("DELETE FROM FUser");
         }
         catch (SQLException e){
             e.printStackTrace();
