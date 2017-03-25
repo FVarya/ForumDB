@@ -1,5 +1,5 @@
 # ForumDB
-#SQL Project 
+# SQL Project 
 
 Builds Docker image
 ```bash
