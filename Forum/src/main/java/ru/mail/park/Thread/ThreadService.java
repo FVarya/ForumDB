@@ -15,6 +15,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalField;
 
 /**
  * Created by Варя on 16.03.2017.
@@ -98,7 +100,8 @@ public class ThreadService extends DBConnect {
                                     //body.setCreated(zonedDateTime);
                                     preparedStatement.setTimestamp(6, Timestamp.valueOf(zonedDateTime.toLocalDateTime()));
                                 } else {
-                                    Timestamp t = Timestamp.valueOf(body.getCreated().toLocalDateTime());
+                                    //Timestamp t = Timestamp.valueOf(body.getCreated().toLocalDateTime());
+                                    Timestamp t = new Timestamp(body.getCreated().getLong(ChronoField.INSTANT_SECONDS)*1000+ body.getCreated().getLong(ChronoField.MILLI_OF_SECOND));
                                     preparedStatement.setTimestamp(6, t);
                                 }
                                 ResultSet resultSet = preparedStatement.executeQuery();
