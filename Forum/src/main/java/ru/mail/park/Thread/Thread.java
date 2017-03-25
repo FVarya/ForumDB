@@ -36,7 +36,7 @@ public class Thread {
         this.title = title;
         this.message = message;
         if(created != null)
-            this.created = LocalDateTime.parse(created, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            this.created = LocalDateTime.parse(created, DateTimeFormatter.ISO_DATE_TIME);
         else this.created = null;
     }
 
