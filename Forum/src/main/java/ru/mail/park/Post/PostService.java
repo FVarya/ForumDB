@@ -207,7 +207,8 @@ public class PostService extends DBConnect {
                                 zonedDateTime = moment;
                             } else moment = zonedDateTime;
                             body.setCreated(zonedDateTime);
-                            preparedStatement.setTimestamp(4, Timestamp.valueOf(zonedDateTime.toLocalDateTime()));
+                            Timestamp t = new Timestamp(body.getCreated().getLong(ChronoField.INSTANT_SECONDS)*1000+ body.getCreated().getLong(ChronoField.MILLI_OF_SECOND));
+                            preparedStatement.setTimestamp(4, t);
                         } else {
                             Timestamp t = Timestamp.valueOf(body.getCreated().toLocalDateTime());
                             preparedStatement.setTimestamp(4, t);
