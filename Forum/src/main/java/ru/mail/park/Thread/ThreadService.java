@@ -100,8 +100,8 @@ public class ThreadService extends DBConnect {
                                     //body.setCreated(zonedDateTime);
                                     preparedStatement.setTimestamp(6, Timestamp.valueOf(zonedDateTime.toLocalDateTime()));
                                 } else {
-                                    //Timestamp t = Timestamp.valueOf(body.getCreated().toLocalDateTime());
-                                    Timestamp t = new Timestamp(body.getCreated().getLong(ChronoField.INSTANT_SECONDS)*1000+ body.getCreated().getLong(ChronoField.MILLI_OF_SECOND));
+                                    Timestamp t = Timestamp.valueOf(body.getCreated().toLocalDateTime());
+                                    //Timestamp t = new Timestamp(body.getCreated().getLong(ChronoField.INSTANT_SECONDS)*1000+ body.getCreated().getLong(ChronoField.MILLI_OF_SECOND));
                                     preparedStatement.setTimestamp(6, t);
                                 }
                                 ResultSet resultSet = preparedStatement.executeQuery();

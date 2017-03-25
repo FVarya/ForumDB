@@ -20,7 +20,7 @@ CHECK (((slug)::text ~ '^(\d|\w|-|_)*(\w|-|_)(\d|\w|-|_)*$'::text))
 CREATE TABLE IF NOT EXISTS Thread(
 author citext NOT NULL,
 slug citext UNIQUE,
-create_date timestamptz DEFAULT now() NOT NULL,
+create_date timestamptz(6) DEFAULT now() NOT NULL,
 message citext NOT NULL,
 title citext NOT NULL,
 forum citext NOT NULL,
