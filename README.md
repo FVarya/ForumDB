@@ -3,15 +3,15 @@
 
 Builds Docker image
 ```bash
-docker build -t tech-db-forum-orel-image .
+docker build -t forum .
 ```
 
 Create container and then starts it
 ```bash
-docker run -p 5000:5000 --name tech-db-forum-orel-container tech-db-forum-orel-image
+docker run -p 5000:5000 --name forum forum
 ```
 
 Start stopped containers
 ```bash
-docker start tech-db-forum-orel-container
+docker start forum
 ```
