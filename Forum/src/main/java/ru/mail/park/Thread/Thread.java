@@ -8,7 +8,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.Timestamp;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Formatter;
@@ -24,7 +24,7 @@ public class Thread {
     private String forum;
     private Integer id;
     private Integer votes;
-    private ZonedDateTime created;
+    private LocalDateTime created;
     private ObjectMapper map = new ObjectMapper();
 
     @JsonCreator
@@ -36,7 +36,7 @@ public class Thread {
         this.title = title;
         this.message = message;
         if(created != null)
-            this.created = ZonedDateTime.parse(created, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            this.created = LocalDateTime.parse(created, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         else this.created = null;
     }
 
@@ -56,7 +56,7 @@ public class Thread {
         return message;
     }
 
-    public ZonedDateTime getCreated(){return created;}
+    public LocalDateTime getCreated(){return created;}
 
     public void setForum(String forum) {
         this.forum = forum;
@@ -74,7 +74,7 @@ public class Thread {
 
     public void setTitle (String title) { this.title = title; }
 
-    public void setCreated(ZonedDateTime created) {
+    public void setCreated(LocalDateTime created) {
         this.created = created;
     }
 
