@@ -15,7 +15,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 
 /**
  * Created by Варя on 16.03.2017.
@@ -99,8 +98,7 @@ public class ThreadService extends DBConnect {
                                     //body.setCreated(zonedDateTime);
                                     preparedStatement.setTimestamp(6, Timestamp.valueOf(zonedDateTime.toLocalDateTime()));
                                 } else {
-                                    //Timestamp t = Timestamp.valueOf(body.getCreated().toLocalDateTime());
-                                    Timestamp t = Timestamp.valueOf(body.getCreated());
+                                    Timestamp t = Timestamp.valueOf(body.getCreated().toLocalDateTime());
                                     preparedStatement.setTimestamp(6, t);
                                 }
                                 ResultSet resultSet = preparedStatement.executeQuery();
