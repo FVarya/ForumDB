@@ -12,6 +12,7 @@ import ru.mail.park.Error.Error;
  * Created by Варя on 12.03.2017.
  */
 
+@SuppressWarnings("unused")
 @RestController
 public class UserController {
 
@@ -25,8 +26,10 @@ public class UserController {
 
     @GetMapping("/api/user/{nickname}/profile")
     public ResponseEntity getUserInfo(@PathVariable("nickname") String nickname){
-        User user;
-        if((user = userService.getUserInfo(nickname)) != null){ return new ResponseEntity(user.getUserJson(), HttpStatus.OK);}
+        final User user;
+        if((user = userService.getUserInfo(nickname)) != null) {
+            return new ResponseEntity(user.getUserJson(), HttpStatus.OK);
+        }
         else return new ResponseEntity(Error.getErrorJson("User not found"), HttpStatus.NOT_FOUND);
     }
 

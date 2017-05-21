@@ -10,6 +10,7 @@ import javax.validation.constraints.NotNull;
 /**
  * Created by Варя on 24.03.2017.
  */
+@SuppressWarnings("unused")
 @RestController
 public class ServiceController {
 

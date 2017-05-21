@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 /**
  * Created by Варя on 14.03.2017.
  */
+@SuppressWarnings("unused")
 public class Forum {
     private String slug;
     private String title;
@@ -21,13 +22,12 @@ public class Forum {
     private ObjectMapper map = new ObjectMapper();
 
     @JsonCreator
-    public Forum(@JsonProperty("slug") String slug, @JsonProperty("title") String title, @JsonProperty("user") String admin){
+    public Forum(@JsonProperty("slug") String slug, @JsonProperty("title") String title,
+                 @JsonProperty("user") String admin){
         this.slug = slug;
         this.title = title;
         this.admin = admin;
     }
-
-    public Forum(){}
 
     public String getSlug(){
         return slug;

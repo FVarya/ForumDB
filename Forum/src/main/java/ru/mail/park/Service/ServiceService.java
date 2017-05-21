@@ -21,31 +21,32 @@ import java.sql.SQLException;
 public class ServiceService extends DBConnect {
 
     @Autowired
-    public ServiceService(DataSource dataSource){this.dataSource = dataSource; }
+    public ServiceService(DataSource dataSource){
+        DBConnect.dataSource = dataSource; }
 
     public ResponseEntity serviceStatus(){
         try {
-            int user = SelectQuery.execute("SELECT count(nickname) FROM FUser",
+            final int user = SelectQuery.execute("SELECT count(nickname) FROM FUser",
                     resultSet -> {
                         resultSet.next();
                         return resultSet.getInt(1);
                     });
-            int forum = SelectQuery.execute("SELECT count(slug) FROM Forum",
+            final int forum = SelectQuery.execute("SELECT count(slug) FROM Forum",
                     resultSet -> {
                         resultSet.next();
                         return resultSet.getInt(1);
                     });
-            int thread = SelectQuery.execute("SELECT count(thread_id) FROM Thread",
+            final int thread = SelectQuery.execute("SELECT count(thread_id) FROM Thread",
                     resultSet -> {
                         resultSet.next();
                         return resultSet.getInt(1);
                     });
-            int post = SelectQuery.execute("SELECT count(message_id) FROM Message",
+            final int post = SelectQuery.execute("SELECT count(message_id) FROM Message",
                     resultSet -> {
                         resultSet.next();
                         return resultSet.getInt(1);
                     });
-            Servicee servicee = new Servicee(forum, post, thread, user);
+            final Servicee servicee = new Servicee(forum, post, thread, user);
             return new ResponseEntity(servicee.getServiceJson(), HttpStatus.OK);
         }
         catch (SQLException e){

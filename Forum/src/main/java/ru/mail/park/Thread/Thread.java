@@ -5,17 +5,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.sql.Timestamp;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Calendar;
-import java.util.Formatter;
 
 /**
  * Created by Варя on 11.03.2017.
  */
+@SuppressWarnings("unused")
 public class Thread {
     private String slug;
     private String message;
@@ -78,6 +74,10 @@ public class Thread {
         this.created = created;
     }
 
+    public Integer getVotes() {
+        return votes;
+    }
+
     public Integer getId(){return this.id; }
 
     public ObjectNode getThreadJson(){
@@ -89,7 +89,7 @@ public class Thread {
         node.put("message", this.message);
         node.put("title", this.title);
         if(slug != null) node.put("slug", this.slug);
-        if(node != null) node.put("votes", this.votes);
+        if(votes != null) node.put("votes", this.votes);
         return node;
     }
 }

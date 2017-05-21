@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 /**
  * Created by Варя on 21.03.2017.
  */
+@SuppressWarnings({"InstanceMethodNamingConvention", "MethodParameterNamingConvention"})
 public class Post {
     private BigDecimal id;
     private Integer thread_id;

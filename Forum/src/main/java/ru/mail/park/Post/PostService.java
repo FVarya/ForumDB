@@ -29,6 +29,7 @@ import java.time.temporal.ChronoField;
 /**
  * Created by Варя on 21.03.2017.
  */
+@SuppressWarnings({"JDBCResourceOpenedButNotSafelyClosed", "MethodParameterNamingConvention", "LocalVariableNamingConvention"})
 @Service
 @Transactional
 public class PostService extends DBConnect {
@@ -37,7 +38,7 @@ public class PostService extends DBConnect {
 
     @Autowired
     public PostService(DataSource dataSource) {
-        this.dataSource = dataSource;
+        DBConnect.dataSource = dataSource;
     }
 
     private Post getPost(BigDecimal id) throws SQLException{
@@ -47,10 +48,10 @@ public class PostService extends DBConnect {
                         "WHERE message_id = ?",
                 preparedStatement -> {
                     preparedStatement.setBigDecimal(1, id);
-                    ResultSet resultSet = preparedStatement.executeQuery();
+                    final ResultSet resultSet = preparedStatement.executeQuery();
                     resultSet.next();
-                    String s = resultSet.getString(5).replace(' ', 'T') + ":00";
-                    Post post1 = new Post(resultSet.getInt(2), resultSet.getString(3),
+                    final String s = resultSet.getString(5).replace(' ', 'T') + ":00";
+                    final Post post1 = new Post(resultSet.getInt(2), resultSet.getString(3),
                             resultSet.getString(4), s, resultSet.getBoolean(6),
                             resultSet.getBigDecimal(7));
                     post1.setId(resultSet.getBigDecimal(1));
@@ -65,14 +66,14 @@ public class PostService extends DBConnect {
                     if (id != null) {
                         preparedStatement.setInt(1, id);
                     } else preparedStatement.setString(1, slug);
-                    ResultSet resultSet = preparedStatement.executeQuery();
+                    final ResultSet resultSet = preparedStatement.executeQuery();
                     final ObjectMapper mapp = new ObjectMapper();
                     final ObjectNode node = mapp.createObjectNode();
                     final ArrayNode arrayNode = mapp.createArrayNode();
                     node.put("marker", "marker");
                     while (resultSet.next()) {
-                        String s = resultSet.getString(2).replace(' ', 'T') + ":00";
-                        Post post = new Post(resultSet.getInt(8),
+                        final String s = resultSet.getString(2).replace(' ', 'T') + ":00";
+                        final Post post = new Post(resultSet.getInt(8),
                                 resultSet.getString(6), resultSet.getString(1),
                                 s, resultSet.getBoolean(5), resultSet.getBigDecimal(7));
                         post.setForum(resultSet.getString(3));
@@ -84,11 +85,11 @@ public class PostService extends DBConnect {
                 });
     }
 
+    @SuppressWarnings("OverlyComplexMethod")
     public ResponseEntity getPostInfo(String slug, Integer id, Double limit, String mark, Boolean desc, String sort) {
         String strSort = "ASC";
         if (desc)
             strSort = "DESC";
-        String sort1 = "";
         String strMarker = "";
         if (mark != null) {
             strMarker = " OFFSET " + this.marker.intValue();
@@ -101,6 +102,7 @@ public class PostService extends DBConnect {
             else this.marker = limit;
         }
         if (sort == null) sort = "flat";
+        String sort1 = "";
         if (sort.equals("parent_tree"))
             sort1 = "ORDER BY M.message_id " + strSort + strLimit + strMarker;
         else if (sort.equals("tree")) {
@@ -110,9 +112,9 @@ public class PostService extends DBConnect {
             String req = "lower(T.slug) = lower(?)";
             if (id != null)
                 req = " T.thread_id = ?";
-            ThreadService threadService = new ThreadService(this.dataSource);
+            final ThreadService threadService = new ThreadService(dataSource);
             if(threadService.getThreadInfo(slug, id) == null)
-                throw new SQLException("Forum not found");
+                throw new SQLException("Thread not found");
             if (sort.equals("parent_tree") || sort.equals("tree")) {
                 return getPostsSort("WITH RECURSIVE rtree (author, create_date, forum, id, isEdit, message" +
                         ", parent, thread, path ) AS (" +
@@ -149,45 +151,17 @@ public class PostService extends DBConnect {
     }
 
 
+    @SuppressWarnings({"OverlyComplexMethod", "MagicNumber"})
     public Post createPost(String thread_slug, Integer thread_id, Post body) throws SQLException {
-
-        String req = "lower(slug) = lower(?)";
-        if (thread_id != null)
-            req = "thread_id = ?";
-        final int t_id = PrepareQuery.execute("SELECT thread_id FROM Thread WHERE " + req,
-                preparedStatement -> {
-                    if (thread_id != null) {
-                        preparedStatement.setInt(1, thread_id);
-                    } else preparedStatement.setString(1, thread_slug);
-                    ResultSet resultSet = preparedStatement.executeQuery();
-                    if (!resultSet.next())
-                        throw new SQLException("Not found");
-                    return resultSet.getInt(1);
-                });
+        final ThreadService threadService = new ThreadService(dataSource);
+        final Thread thread;
+        if((thread = threadService.getThreadInfo(thread_slug, thread_id)) == null)
+            throw new SQLException("Not found");
         if (body.getParent().intValue() != 0) {
-            PrepareQuery.execute("SELECT M.message_id FROM Message AS M " +
-                            "JOIN Thread as T USING(thread_id) " +
-                            "WHERE M.message_id = ? and T.thread_id = ?",
-                    preparedStatement -> {
-                        preparedStatement.setBigDecimal(1, body.getParent());
-                        preparedStatement.setInt(2, t_id);
-                        ResultSet resultSet = preparedStatement.executeQuery();
-                        if (!resultSet.next())
-                            throw new SQLException("Message not found");
-                        return resultSet.getString(1);
-                    });
+            getParent(body.getParent(), thread);
         }
-        final String forum = PrepareQuery.execute("SELECT F.slug FROM " +
-                        "Thread as T  " +
-                        "JOIN Forum as F ON T.forum = F.slug WHERE T.thread_id = ?",
-                preparedStatement -> {
-                    preparedStatement.setInt(1, t_id);
-                    ResultSet resultSet = preparedStatement.executeQuery();
-                    if (!resultSet.next())
-                        throw new SQLException("Not found");
-                    return resultSet.getString(1);
-                });
-        UserService userService = new UserService(this.dataSource);
+        final String forum = getForumSlug(thread.getId());
+        final UserService userService = new UserService(dataSource);
         if(userService.getUserInfo(body.getAuthor()) == null){
             throw new SQLException("Not found");
         }
@@ -195,7 +169,7 @@ public class PostService extends DBConnect {
             return PrepareQuery.execute("INSERT INTO Message (thread_id, message, author, create_date, parent_id) " +
                             "VALUES (?,?,?,?,?) RETURNING message_id",
                     preparedStatement -> {
-                        preparedStatement.setInt(1, t_id);
+                        preparedStatement.setInt(1, thread.getId());
                         preparedStatement.setString(2, body.getMessage());
                         preparedStatement.setString(3, body.getAuthor());
                         if (body.getParent().intValue() == 0) {
@@ -203,19 +177,22 @@ public class PostService extends DBConnect {
                         } else preparedStatement.setBigDecimal(5, body.getParent());
                         if (body.getCreated() == null) {
                             ZonedDateTime zonedDateTime = ZonedDateTime.now();
-                            if (moment != null && zonedDateTime.getLong(ChronoField.SECOND_OF_DAY) - moment.getLong(ChronoField.SECOND_OF_DAY) <= 120 ) {
+                            if (moment != null && zonedDateTime.getLong(ChronoField.INSTANT_SECONDS) -
+                                    moment.getLong(ChronoField.INSTANT_SECONDS) <= 120 ) {
                                 zonedDateTime = moment;
                             } else moment = zonedDateTime;
                             body.setCreated(zonedDateTime);
-                            Timestamp t = new Timestamp(body.getCreated().getLong(ChronoField.INSTANT_SECONDS)*1000+ body.getCreated().getLong(ChronoField.MILLI_OF_SECOND));
+                            final Timestamp t = new Timestamp(body.getCreated().getLong(ChronoField.INSTANT_SECONDS)*1000
+                                    + body.getCreated().getLong(ChronoField.MILLI_OF_SECOND));
                             preparedStatement.setTimestamp(4, t);
                         } else {
-                            Timestamp t = Timestamp.valueOf(body.getCreated().toLocalDateTime());
+                            final Timestamp t = Timestamp.valueOf(body.getCreated().toLocalDateTime());
                             preparedStatement.setTimestamp(4, t);
+                            moment = null;
                         }
                         body.setForum(forum);
-                        body.setThread_id(t_id);
-                        ResultSet resultSet = preparedStatement.executeQuery();
+                        body.setThread_id(thread.getId());
+                        final ResultSet resultSet = preparedStatement.executeQuery();
                         resultSet.next();
                         body.setId(resultSet.getBigDecimal(1));
                         return body;
@@ -226,8 +203,35 @@ public class PostService extends DBConnect {
         }
     }
 
+    private String getForumSlug(Integer thread) throws SQLException {
+        return PrepareQuery.execute("SELECT F.slug FROM " +
+                        "Thread as T  " +
+                        "JOIN Forum as F ON T.forum = F.slug WHERE T.thread_id = ?",
+                preparedStatement -> {
+                    preparedStatement.setInt(1, thread);
+                    final ResultSet resultSet = preparedStatement.executeQuery();
+                    if (!resultSet.next())
+                        throw new SQLException("Not found");
+                    return resultSet.getString(1);
+                });
+    }
+
+    private void getParent(BigDecimal parent, Thread thread) throws SQLException {
+        PrepareQuery.execute("SELECT M.message_id FROM Message AS M " +
+                        "JOIN Thread as T USING(thread_id) " +
+                        "WHERE M.message_id = ? and T.thread_id = ?",
+                preparedStatement -> {
+                    preparedStatement.setBigDecimal(1, parent);
+                    preparedStatement.setInt(2, thread.getId());
+                    final ResultSet resultSet = preparedStatement.executeQuery();
+                    if (!resultSet.next())
+                        throw new SQLException("Message not found");
+                    return resultSet.getString(1);
+                });
+    }
+
+    @SuppressWarnings("OverlyComplexMethod")
     public ResponseEntity getPostRelated(BigDecimal id, String[] related) {
-        Post post;
         final ObjectMapper map = new ObjectMapper();
         final ObjectNode node = map.createObjectNode();
         boolean user = false;
@@ -247,22 +251,22 @@ public class PostService extends DBConnect {
             }
         }
         try {
-            post = getPost(id);
+            final Post post = getPost(id);
             node.set("post", post.getPostJson());
             if (user) {
-                UserService userService = new UserService(this.dataSource);
-                User user1 = userService.getUserInfo(post.getAuthor());
+                final UserService userService = new UserService(dataSource);
+                final User user1 = userService.getUserInfo(post.getAuthor());
                 node.set("author", user1.getUserJson());
             }
             if (forum) {
-                ForumService forumService = new ForumService(this.dataSource);
-                Forum forum1 = forumService.getForumInfo(post.getForum());
+                final ForumService forumService = new ForumService(dataSource);
+                final Forum forum1 = forumService.getFullForum(post.getForum());
                 node.set("forum", forum1.getForumJson());
 
             }
             if (thread) {
-                final ThreadService threadService = new ThreadService(this.dataSource);
-                final Thread thread1 = threadService.getThreadInfo(null, post.getThread_id());
+                final ThreadService threadService = new ThreadService(dataSource);
+                final Thread thread1 = threadService.getFullThread(null, post.getThread_id());
                 node.set("thread", thread1.getThreadJson());
             }
             return new ResponseEntity(node, HttpStatus.OK);
@@ -274,7 +278,7 @@ public class PostService extends DBConnect {
 
     public ResponseEntity setPost(BigDecimal id, Post body) {
         try {
-            Post post = getPost(id);
+            final Post post = getPost(id);
             if (body.getMessage() != null && !post.getMessage().equals(body.getMessage())) {
                 return PrepareQuery.execute("UPDATE Message SET (message, is_edit) = (?, true) " +
                                 "WHERE message_id = ?",

@@ -5,11 +5,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.mail.park.Error.Error;
 import javax.validation.constraints.NotNull;
-import java.time.ZonedDateTime;
 
 /**
  * Created by Варя on 17.03.2017.
  */
+@SuppressWarnings({"unused", "MethodParameterNamingConvention"})
 @RestController
 public class ThreadController {
 
@@ -21,7 +21,7 @@ public class ThreadController {
     }
 
     @PostMapping("/api/thread/{slug or id}/vote")
-    public ResponseEntity createThread(@PathVariable("slug or id") String slug_or_id, @RequestBody  Like like) {
+    public ResponseEntity voteThread(@PathVariable("slug or id") String slug_or_id, @RequestBody  Like like) {
         Integer id = null;
         try {
             id = Integer.parseInt(slug_or_id);
@@ -39,7 +39,7 @@ public class ThreadController {
         } catch (NumberFormatException e) {
             e.printStackTrace();
         }
-        Thread thread = threadService.getThreadInfo(slug_or_id, id);
+        final Thread thread = threadService.getFullThread(slug_or_id, id);
         if(thread == null) {
             return new ResponseEntity(Error.getErrorJson("Thread not Found"), HttpStatus.NOT_FOUND);
         }

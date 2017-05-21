@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.mail.park.User.User;
 import ru.mail.park.Error.Error;
 
 import javax.websocket.server.PathParam;
@@ -13,6 +12,7 @@ import javax.websocket.server.PathParam;
  * Created by Варя on 14.03.2017.
  */
 
+@SuppressWarnings("unused")
 @RestController
 public class ForumController {
     private final ForumService forumService;
@@ -29,8 +29,10 @@ public class ForumController {
 
     @GetMapping("/api/forum/{slug}/details")
     public ResponseEntity getForumInfo(@PathVariable("slug") String slug){
-        Forum forum;
-        if((forum = forumService.getForumInfo(slug)) != null) {return new ResponseEntity(forum.getForumJson(), HttpStatus.OK);}
+        final Forum forum;
+        if((forum = forumService.getFullForum(slug)) != null) {
+            return new ResponseEntity(forum.getForumJson(), HttpStatus.OK);
+        }
         return new ResponseEntity(Error.getErrorJson("Forum not found"), HttpStatus.NOT_FOUND);
     }
 
