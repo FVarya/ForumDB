@@ -35,14 +35,11 @@ public class ThreadService extends DBConnect {
 
     public Thread getFullThread(String slug, Integer t_id){
         try {
-            String req = "lower(T.slug) = lower(?)";
+            String req = "lower(slug) = lower(?)";
             if (t_id != null)
-                req = "T.thread_id = ?";
-            return PrepareQuery.execute("SELECT T.*, SUM(L.mark), F.slug  FROM Thread AS T " +
-                            " LEFT JOIN TLike  AS L ON L.thread_id = T.thread_id JOIN Forum AS F " +
-                            "ON F.slug = T.forum" +
-                            " WHERE " + req +
-                            " GROUP BY T.thread_id, F.slug",
+                req = "thread_id = ?";
+            return PrepareQuery.execute("SELECT *  FROM Thread " +
+                            " WHERE " + req ,
                     preparedStatement -> {
                         if (t_id != null) {
                             preparedStatement.setInt(1, t_id);
@@ -54,7 +51,7 @@ public class ThreadService extends DBConnect {
                                 resultSet.getString(1), resultSet.getString(5),
                                 resultSet.getString(4), s);
                         thread.setVotes(resultSet.getInt(8));
-                        thread.setForum(resultSet.getString(9));
+                        thread.setForum(resultSet.getString(6));
                         thread.setId(resultSet.getInt(7));
                         return thread;
                     });
@@ -81,12 +78,22 @@ public class ThreadService extends DBConnect {
                                 resultSet.getString(1), resultSet.getString(5),
                                 resultSet.getString(4), s);
                         thread.setId(resultSet.getInt(7));
+                        thread.setForum(resultSet.getString(6));
                         return thread;
                     });
         } catch (SQLException e) {
             e.printStackTrace();
             return null;
         }
+    }
+
+    private void updForumThreads(String slug) throws SQLException {
+        PrepareQuery.execute("UPDATE Forum SET threads = threads + 1 WHERE lower(slug) = lower(?)",
+                preparedStatement -> {
+                    preparedStatement.setString(1, slug);
+                    preparedStatement.executeUpdate();
+                    return null;
+                });
     }
 
     public ResponseEntity createThread(String slug, Thread body) {
@@ -119,6 +126,7 @@ public class ThreadService extends DBConnect {
                             final ResultSet resultSet = preparedStatement.executeQuery();
                             resultSet.next();
                             body.setId(resultSet.getInt(1));
+                            updForumThreads(slug);
                             return null;
                         });
                 body.setForum(forum.getSlug());
@@ -129,6 +137,19 @@ public class ThreadService extends DBConnect {
             n.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Something go wrong"), HttpStatus.EXPECTATION_FAILED);
         }
+    }
+
+    private int updTreadVotes(Thread thread) throws SQLException {
+        return PrepareQuery.execute("UPDATE Thread SET votes = (SELECT SUM(mark) FROM Tlike " +
+                        "WHERE (thread_id) = ?) WHERE thread_id = ? RETURNING votes;",
+                preparedStatement -> {
+                    preparedStatement.setInt(1, thread.getId());
+                    preparedStatement.setInt(2, thread.getId());
+                    preparedStatement.executeQuery();
+                    final ResultSet resultSet = preparedStatement.executeQuery();
+                    resultSet.next();
+                    return resultSet.getInt(1);
+                });
     }
 
     public ResponseEntity voice(String thread_slug, Integer thread_id, Like body) {
@@ -156,12 +177,14 @@ public class ThreadService extends DBConnect {
                             preparedStatement.executeUpdate();
                             return null;
                         });
+                thread.setVotes(thread.getVotes() + body.getVoice());
             }
+            thread.setVotes(updTreadVotes(thread));
         } catch (SQLException q) {
             q.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Something gone wrong"), HttpStatus.EXPECTATION_FAILED);
         }
-        return new ResponseEntity(getFullThread(thread_slug, thread_id).getThreadJson(), HttpStatus.OK);
+        return new ResponseEntity(thread.getThreadJson(), HttpStatus.OK);
     }
 
 

@@ -57,11 +57,8 @@ public class ServiceService extends DBConnect {
 
     public ResponseEntity serviceClear(){
         try {
-            UpdateQuery.execute("DELETE FROM TLike");
-            UpdateQuery.execute("DELETE FROM Message");
-            UpdateQuery.execute("DELETE FROM Thread");
-            UpdateQuery.execute("DELETE FROM Forum");
-            UpdateQuery.execute("DELETE FROM FUser");
+            UpdateQuery.execute("TRUNCATE TABLE Message, Forum, Thread, TLike, " +
+                    "FUser, Forum_users CASCADE;");
         }
         catch (SQLException e){
             e.printStackTrace();

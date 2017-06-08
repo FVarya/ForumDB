@@ -80,6 +80,10 @@ public class Thread {
 
     public Integer getId(){return this.id; }
 
+    public String getForum() {
+        return forum;
+    }
+
     public ObjectNode getThreadJson(){
         final ObjectNode node = map.createObjectNode();
         node.put("author", this.author);

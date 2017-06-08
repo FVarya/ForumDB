@@ -23,7 +23,8 @@ public class PostController {
     private final PostService postService;
 
     @PostMapping("/api/thread/{slug or id}/create")
-    public ResponseEntity createThread(@PathVariable("slug or id") String slug_or_id, @RequestBody Post[] posts){
+    public ResponseEntity createThread(@PathVariable("slug or id") String slug_or_id,
+                                       @RequestBody Post[] posts){
         Integer id = null;
         try {
             id = Integer.parseInt(slug_or_id);
@@ -31,22 +32,19 @@ public class PostController {
         catch (NumberFormatException e){
             e.printStackTrace();
         }
-        final ObjectMapper mapp = new ObjectMapper();
-        final ArrayNode arrayNode = mapp.createArrayNode();
-        for (Post post: posts){
-            try{
-                arrayNode.add(postService.createPost(slug_or_id, id, post).getPostJson());
-            }
-            catch (SQLException e){
-                e.printStackTrace();
-                if(e.getMessage().equals("Not found")){
-                    return new ResponseEntity(Error.getErrorJson("Not found"), HttpStatus.NOT_FOUND);
-                }
-                else return new ResponseEntity(Error.getErrorJson("Parent not found"), HttpStatus.CONFLICT);
-            }
-        }
-        if(arrayNode.size() == 0){
+        if(posts == null || posts.length == 0){
             return new ResponseEntity(null, HttpStatus.NOT_FOUND);
+        }
+        final ArrayNode arrayNode;
+        try{
+            arrayNode = postService.createPosts(slug_or_id, id, posts);
+        }
+        catch (SQLException e){
+            e.printStackTrace();
+            if(e.getMessage().equals("Not found")){
+                return new ResponseEntity(Error.getErrorJson("Not found"), HttpStatus.NOT_FOUND);
+            }
+            else return new ResponseEntity(Error.getErrorJson("Parent not found"), HttpStatus.CONFLICT);
         }
         return new ResponseEntity(arrayNode, HttpStatus.CREATED);
     }

@@ -37,8 +37,8 @@ public class ForumService extends DBConnect {
 
     public Forum getForumInfo(String slug) {
         try {
-            return PrepareQuery.execute("SELECT slug, title, nickname FROM Forum " +
-                            "JOIN FUser ON admin = nickname WHERE lower(slug) = lower(?) ",
+            return PrepareQuery.execute("SELECT slug, title, admin FROM Forum " +
+                            "WHERE lower(slug) = lower(?)",
                     prepareStatement -> {
                         prepareStatement.setString(1, slug);
                         final ResultSet resultSet = prepareStatement.executeQuery();
@@ -58,8 +58,8 @@ public class ForumService extends DBConnect {
             return null;
         }
         try {
-            return PrepareQuery.execute("SELECT COUNT(message_id), COUNT(DISTINCT thread_id) FROM Thread " +
-                            "LEFT JOIN  Message USING(thread_id) WHERE forum = ? ",
+            return PrepareQuery.execute("SELECT messages, threads FROM Forum " +
+                            "WHERE lower(slug) = lower(?) ",
                     prepareStatement -> {
                         prepareStatement.setString(1, slug);
                         final ResultSet resultSet = prepareStatement.executeQuery();
@@ -112,19 +112,19 @@ public class ForumService extends DBConnect {
             String strSince = "";
             if (since != null)
                 if (desc)
-                    strSince = " and U.nickname < '" + since + "' ";
-                else strSince = " and U.nickname > '" + since + "' ";
+                    strSince = " and nickname < '" + since + "' ";
+                else strSince = " and nickname > '" + since + "' ";
             String strLimit = "";
             if (limit != null)
                 strLimit = " LIMIT " + limit.intValue();
             String strSort = " ASC ";
             if (desc)
                 strSort = " DESC ";
-            return PrepareQuery.execute("SELECT DISTINCT U.* FROM Thread AS T " +
-                            "LEFT JOIN Message  AS M ON M.thread_id = T.thread_id " +
-                            "JOIN FUser AS U ON (U.nickname = M.author OR U.nickname = T.author) " +
-                            " WHERE lower(T.forum) = lower(?) " + strSince + " ORDER BY U.nickname "
-                            + strSort + strLimit,
+            return PrepareQuery.execute("SELECT U.* FROM FUser as U " +
+                            "WHERE U.nickname IN " +
+                            "(SELECT DISTINCT nickname FROM Forum_users " +
+                            " WHERE lower(forum) = lower(?) " + strSince + " ORDER BY nickname "
+                             + strSort + strLimit + ") " + " ORDER BY U.nickname " + strSort,
                     preparedStatement -> {
                         preparedStatement.setString(1, slug);
                         final ResultSet result = preparedStatement.executeQuery();
@@ -164,7 +164,7 @@ public class ForumService extends DBConnect {
             String strSort = "ASC";
             if (desc)
                 strSort = " DESC";
-            return PrepareQuery.execute("SELECT * FROM Thread WHERE forum = ?"
+            return PrepareQuery.execute("SELECT * FROM Thread WHERE lower(forum) = lower(?)"
                             + strSince + " ORDER BY create_date " + strSort + strLimit,
                     preparedStatement -> {
                         preparedStatement.setString(1, forum.getSlug());

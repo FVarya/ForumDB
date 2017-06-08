@@ -15,16 +15,16 @@ public class PrepareQuery {
 
     public static <T> T execute(String query, PrepStatement<T> st) throws SQLException {
         Connection connection = DBConnect.getConnection();
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            final T result = st.getStatement(preparedStatement);
-            return result;
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-            return null;
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-            return null;
-        }
+        PreparedStatement preparedStatement = connection.prepareStatement(query);
+        final T result = st.getStatement(preparedStatement);
+        return result;
+    }
+
+    public static <T> T execute(String query,int stat, PrepStatement<T> st) throws SQLException {
+        Connection connection = DBConnect.getConnection();
+        PreparedStatement preparedStatement = connection.prepareStatement(query, stat);
+        final T result = st.getStatement(preparedStatement);
+        return result;
     }
 }
 

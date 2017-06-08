@@ -10,5 +10,5 @@ import java.sql.SQLException;
  */
 public interface PrepStatement<T> {
 
-    T getStatement(PreparedStatement preparedStatement) throws SQLException, InvocationTargetException, IllegalAccessException;
+    T getStatement(PreparedStatement preparedStatement) throws SQLException ;
 }
