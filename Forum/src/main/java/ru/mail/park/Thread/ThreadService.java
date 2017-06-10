@@ -197,7 +197,7 @@ public class ThreadService extends DBConnect {
                             return null;
                         });
             }
-            //thread.setVotes(updTreadVotes(thread));
+            thread.setVotes(updTreadVotes(thread));
         } catch (SQLException q) {
             q.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Something gone wrong"), HttpStatus.EXPECTATION_FAILED);
