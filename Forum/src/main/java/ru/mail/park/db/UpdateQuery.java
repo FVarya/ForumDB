@@ -12,8 +12,8 @@ public class UpdateQuery {
 
     public static int execute(String query) throws SQLException{
         Connection connection = DBConnect.getConnection();
-        try(Statement statement = connection.createStatement()){
-            return statement.executeUpdate(query);
-        }
+        Statement statement = connection.createStatement();
+        return statement.executeUpdate(query);
+
     }
 }

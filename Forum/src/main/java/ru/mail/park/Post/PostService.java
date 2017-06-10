@@ -21,6 +21,7 @@ import ru.mail.park.db.PrepareQuery;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.*;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
@@ -45,8 +46,7 @@ public class PostService extends DBConnect {
     }
 
     private Post getPost(BigDecimal id) throws SQLException{
-        return PrepareQuery.execute("SELECT M.*, T.forum FROM Message AS M " +
-                        "JOIN Thread AS T USING(thread_id) " +
+        return PrepareQuery.execute("SELECT M.* FROM Message AS M " +
                         "WHERE message_id = ?",
                 preparedStatement -> {
                     preparedStatement.setBigDecimal(1, id);
@@ -58,16 +58,15 @@ public class PostService extends DBConnect {
                             resultSet.getBigDecimal(7));
                     post1.setId(resultSet.getBigDecimal(1));
                     post1.setForum(resultSet.getString(9));
+                    //post1.setPath((Integer[])resultSet.getArray(8).getArray());
                     return post1;
                 });
     }
 
-    private ResponseEntity getPostsSort(String query, Integer id, String slug) throws SQLException{
+    private ResponseEntity getPostsSort(String query, Integer id) throws SQLException{
         return PrepareQuery.execute(query,
                 preparedStatement -> {
-                    if (id != null) {
-                        preparedStatement.setInt(1, id);
-                    } else preparedStatement.setString(1, slug);
+                    preparedStatement.setInt(1, id);
                     final ResultSet resultSet = preparedStatement.executeQuery();
                     final ObjectMapper mapp = new ObjectMapper();
                     final ObjectNode node = mapp.createObjectNode();
@@ -89,59 +88,53 @@ public class PostService extends DBConnect {
 
     @SuppressWarnings("OverlyComplexMethod")
     public ResponseEntity getPostInfo(String slug, Integer id, Double limit, String mark, Boolean desc, String sort) {
-        String strSort = " ASC ";
-        if (desc)
-            strSort = " DESC ";
-        String strMarker = "";
-        if (mark != null) {
-            strMarker = " OFFSET " + this.marker.intValue();
-        }
-        String strLimit = "";
-        if (limit != null) {
-            strLimit = " LIMIT " + limit.intValue();
-            if (mark != null)
-                this.marker += limit;
-            else this.marker = limit;
-        }
-        if (sort == null) sort = "flat";
         try {
-            String req = "lower(T.slug) = lower(?)";
-            if (id != null)
-                req = " T.thread_id = ?";
             final ThreadService threadService = new ThreadService(dataSource);
-            if(threadService.getThreadInfo(slug, id) == null)
+            final Thread thread;
+            if((thread = threadService.getThreadInfo(slug, id)) == null)
                 throw new SQLException("Thread not found");
+            String strSort = " ASC ";
+            if (desc)
+                strSort = " DESC ";
+            String strMarker = "";
+            if (mark != null) {
+                strMarker = " OFFSET " + this.marker.intValue();
+            }
+            String strLimit = "";
+            if (limit != null) {
+                strLimit = " LIMIT " + limit.intValue();
+                if (mark != null)
+                    this.marker += limit;
+                else this.marker = limit;
+            }
+            if (sort == null) sort = "flat";
+            final String req = " M.thread_id = ?";
             switch (sort) {
                 case "tree":
-                    return getPostsSort("SELECT M.author, M.create_date, T.forum, M.message_id, M.is_edit, " +
+                    return getPostsSort("SELECT M.author, M.create_date, M.forum, M.message_id, M.is_edit, " +
                                     "M.message, M.parent_id,  M.thread_id " +
                                     "FROM Message M " +
-                                    "JOIN Thread  AS T USING(thread_id)" +
                                     "WHERE " + req +
                                     "ORDER BY M.path " + strSort + strLimit + strMarker,
-                            id, slug);
+                            thread.getId());
                 case "parent_tree":
-                    String s = "lower(T.slug) = lower(\'" + slug + "\') ";
-                    if (id != null)
-                        s = "T.thread_id = " + id;
-                    return getPostsSort("SELECT M.author, M.create_date, T.forum, M.message_id, M.is_edit, " +
+                    final String s = "M.thread_id = " + thread.getId();
+                    return getPostsSort("SELECT M.author, M.create_date, M.forum, M.message_id, M.is_edit, " +
                                     "M.message, M.parent_id,  M.thread_id " +
                                     "FROM Message M " +
-                                    "JOIN Thread  AS T USING(thread_id) " +
                                     "WHERE M.path[1] IN ( " +
-                                    "SELECT M.message_id FROM Message AS M JOIN Thread AS T USING (thread_id) " +
+                                    "SELECT M.message_id FROM Message AS M " +
                                     "WHERE M.parent_id = 0 AND " + s +
                                     " ORDER BY M.message_id " + strSort + strLimit + strMarker +
                                     ") AND " + req +
                                     " ORDER BY M.path " + strSort,
-                            id, slug);
+                            thread.getId());
                 default:
-                    return getPostsSort("SELECT M.author, M.create_date, T.forum, M.message_id, M.is_edit, " +
+                    return getPostsSort("SELECT M.author, M.create_date, M.forum, M.message_id, M.is_edit, " +
                                     "M.message, M.parent_id,  M.thread_id " +
                                     " FROM Message AS M  " +
-                                    " JOIN Thread  AS T USING(thread_id)" +
                                     " WHERE " + req + " ORDER BY M.create_date, M.message_id " + strSort + strLimit + strMarker,
-                            id, slug);
+                            thread.getId());
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -174,13 +167,15 @@ public class PostService extends DBConnect {
                 });
     }
 
-    private void checkParents(Post[] body, Thread thread) throws SQLException {
+    private List<Post> checkParents(Post[] body, Thread thread) throws SQLException {
         final BigDecimal[] unique =
                 Arrays.stream(body).map(Post::getParent).distinct().toArray(BigDecimal[]::new);
+        final List<Post> parents = new ArrayList<>();
         for(BigDecimal parent: unique){
             if (parent.intValue() != 0)
-                getParent(parent, thread);
+                parents.add(getParent(parent, thread));
         }
+        return parents;
     }
 
     public ArrayNode createPosts(String thread_slug, Integer thread_id, Post[] body) throws SQLException{
@@ -202,18 +197,27 @@ public class PostService extends DBConnect {
         if(userService.getUserInfo(body[0].getAuthor()) == null)
             throw new SQLException("Not found");
 
-        checkParents(body, thread);
+        final List<Post> parents = checkParents(body, thread);
         return PrepareQuery.execute("INSERT INTO Message (thread_id, message, author, create_date, parent_id," +
-                        " path ) " +
-                        "VALUES (?,?,?,?,?,array_append((SELECT path FROM Message WHERE message_id = ?), " +
-                        "currval('message_message_id_seq')::INT)) ", Statement.RETURN_GENERATED_KEYS,
+                        " path, forum ) " +
+                        "VALUES (?,?,?,?,?,array_append(?, " +
+                        "currval('message_message_id_seq')::INT8), ?) ", Statement.RETURN_GENERATED_KEYS,
                 preparedStatement -> {
                     for (Post post: body) {
                         preparedStatement.setInt(1, thread.getId());
                         preparedStatement.setString(2, post.getMessage());
                         preparedStatement.setString(3, post.getAuthor());
                         preparedStatement.setBigDecimal(5, post.getParent());
-                        preparedStatement.setBigDecimal(6, post.getParent());
+                        for(Post parent: parents){
+                            if(parent.getId().equals(post.getParent())) {
+                                preparedStatement.setArray(6,
+                                        getConnection().createArrayOf("int8", parent.getPath()));
+                                break;
+                            }
+                        }
+                        if(post.getParent().equals(BigDecimal.valueOf(0)))
+                            preparedStatement.setArray(6,null);
+                        preparedStatement.setString(7, thread.getForum());
                         if (post.getCreated() == null) {
                             post.setCreated(postTime);
                             final Timestamp t = new Timestamp(post.getCreated().getLong(ChronoField.INSTANT_SECONDS) * 1000
@@ -249,8 +253,8 @@ public class PostService extends DBConnect {
     }
 
 
-    private void getParent(BigDecimal parent, Thread thread) throws SQLException {
-        PrepareQuery.execute("SELECT message_id FROM Message " +
+    private Post getParent(BigDecimal parent, Thread thread) throws SQLException {
+        return PrepareQuery.execute("SELECT * FROM Message " +
                         "WHERE message_id = ? and thread_id = ?",
                 preparedStatement -> {
                     preparedStatement.setBigDecimal(1, parent);
@@ -258,7 +262,14 @@ public class PostService extends DBConnect {
                     final ResultSet resultSet = preparedStatement.executeQuery();
                     if (!resultSet.next())
                         throw new SQLException("Message not found");
-                    return resultSet.getString(1);
+                    final String s = resultSet.getString(5).replace(' ', 'T') + ":00";
+                    final Post post = new Post(resultSet.getInt(2), resultSet.getString(3),
+                            resultSet.getString(4), s, resultSet.getBoolean(6),
+                            resultSet.getBigDecimal(7));
+                    post.setId(resultSet.getBigDecimal(1));
+                    post.setForum(resultSet.getString(9));
+                    post.setPath((Integer[])resultSet.getArray(8).getArray());
+                    return post;
                 });
     }
 

@@ -6,8 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 /**
  * Created by Варя on 21.03.2017.
@@ -22,6 +24,7 @@ public class Post {
     private String forum;
     private ZonedDateTime created;
     private Boolean is_edit = false;
+    private Integer[] Path;
     private ObjectMapper map = new ObjectMapper();
 
     @JsonCreator
@@ -58,6 +61,18 @@ public class Post {
 
     public void setId (BigDecimal id) {this.id = id; }
 
+    public BigDecimal getId() {
+        return id;
+    }
+
+    public void setPath(Integer[] path) {
+        Path = path;
+    }
+
+    public Integer[] getPath() {
+        return Path;
+    }
+
     public void setMessage(String message){ this.message = message; }
 
     public void setIs_edit() {this.is_edit = true;}
@@ -75,5 +90,13 @@ public class Post {
         node.put("thread", this.thread_id);
         if(parent.intValue() != 0) node.put("parent", this.parent.intValue());
         return node;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        final Post post = (Post) o;
+        return Objects.equals(post.id, id);
     }
 }

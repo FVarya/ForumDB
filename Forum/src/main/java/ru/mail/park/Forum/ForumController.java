@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.mail.park.Error.Error;
 
-import javax.websocket.server.PathParam;
 
 /**
  * Created by Варя on 14.03.2017.

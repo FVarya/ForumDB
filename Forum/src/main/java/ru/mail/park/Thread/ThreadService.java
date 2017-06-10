@@ -139,6 +139,22 @@ public class ThreadService extends DBConnect {
         }
     }
 
+    private int updTreadVotes(Thread thread, int voice) throws SQLException {
+        return PrepareQuery.execute("UPDATE Thread SET votes = (votes) + (?) " +
+                        "WHERE thread_id = ? RETURNING votes;",
+                preparedStatement -> {
+                    preparedStatement.setInt(1, voice);
+                    preparedStatement.setInt(2, thread.getId());
+                    preparedStatement.executeQuery();
+                    final ResultSet resultSet = preparedStatement.executeQuery();
+                    resultSet.next();
+                    System.out.println(voice);
+                    int k = resultSet.getInt(1);
+                    System.out.println(k);
+                    return k;
+                });
+    }
+
     private int updTreadVotes(Thread thread) throws SQLException {
         return PrepareQuery.execute("UPDATE Thread SET votes = (SELECT SUM(mark) FROM Tlike " +
                         "WHERE (thread_id) = ?) WHERE thread_id = ? RETURNING votes;",
@@ -166,7 +182,9 @@ public class ThreadService extends DBConnect {
                         preparedStatement.setString(2, body.getAuthor());
                         preparedStatement.setInt(3, thread.getId());
                         preparedStatement.setInt(1, body.getVoice());
-                        return preparedStatement.executeUpdate();
+                        final int n = preparedStatement.executeUpdate();
+                        //if(n != 0) thread.setVotes(updTreadVotes(thread));
+                        return n;
                     });
             if (num == 0) {
                 PrepareQuery.execute("INSERT INTO TLike values(?, ?, ?)",
@@ -175,9 +193,9 @@ public class ThreadService extends DBConnect {
                             preparedStatement.setInt(2, thread.getId());
                             preparedStatement.setInt(3, body.getVoice());
                             preparedStatement.executeUpdate();
+                            //thread.setVotes(updTreadVotes(thread, body.getVoice()));
                             return null;
                         });
-                thread.setVotes(thread.getVotes() + body.getVoice());
             }
             thread.setVotes(updTreadVotes(thread));
         } catch (SQLException q) {

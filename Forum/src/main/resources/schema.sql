@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS FUser(
   email citext NOT NULL UNIQUE,
   fullname citext,
   about citext
---   CHECK (((nickname)::text ~ similar_escape('[A-Za-z0-9!_!.]+'::text, '!'::text)))
 );
 
 CREATE TABLE IF NOT EXISTS Forum(
@@ -16,7 +15,6 @@ CREATE TABLE IF NOT EXISTS Forum(
   messages INTEGER DEFAULT 0,
   threads INTEGER DEFAULT 0,
   FOREIGN KEY (admin) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE
---   CHECK (((slug)::text ~ '^(\d|\w|-|_)*(\w|-|_)(\d|\w|-|_)*$'::text))
 );
 
 CREATE INDEX IF NOT EXISTS idx_forums_admin ON Forum (lower(admin));
@@ -30,7 +28,6 @@ CREATE TABLE IF NOT EXISTS Thread(
   forum citext NOT NULL,
   thread_id SERIAL4 PRIMARY KEY,
   votes INT NOT NULL DEFAULT 0,
---   CHECK (((slug)::text ~ '^(\d|\w|-|_)*(\w|-|_)(\d|\w|-|_)*$'::text)),
   FOREIGN KEY (author) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE,
   FOREIGN KEY (forum) REFERENCES Forum (slug) ON DELETE RESTRICT ON UPDATE CASCADE
 );
@@ -49,13 +46,14 @@ CREATE TABLE IF NOT EXISTS Message(
   is_edit bool DEFAULT false NOT NULL,
   parent_id int8  NOT NULL DEFAULT 0,
   path INT ARRAY,
+  forum citext,
   FOREIGN KEY (thread_id) REFERENCES Thread (thread_id) ON DELETE RESTRICT ON UPDATE CASCADE,
-  FOREIGN KEY (author) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE
+  FOREIGN KEY (author) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE,
+  FOREIGN KEY (forum) REFERENCES Forum (slug) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_message_author ON Message (lower(author));
 CREATE INDEX IF NOT EXISTS idx_message_thread_id ON Message (thread_id);
-CREATE INDEX IF NOT EXISTS idx_message_create_date ON Message (create_date);
 CREATE INDEX IF NOT EXISTS idx_message_path ON Message ((path[1]));
 CREATE INDEX IF NOT EXISTS idx_posts_get ON Message (message_id, thread_id);
 CREATE INDEX IF NOT EXISTS idx_message_parents ON Message(message_id, parent_id, thread_id);
@@ -70,7 +68,7 @@ CREATE TABLE IF NOT EXISTS TLike(
   FOREIGN KEY (author) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE,
   UNIQUE (author, thread_id)
 );
-
+CREATE INDEX IF NOT EXISTS idx_like_thread_id ON TLike (thread_id);
 
 CREATE TABLE IF NOT EXISTS Forum_users (
   nickname  citext NOT NULL,
@@ -94,3 +92,6 @@ DROP TRIGGER IF EXISTS thread_insert_trigger ON Thread;
 CREATE TRIGGER thread_insert_trigger AFTER INSERT ON Thread
 FOR EACH ROW EXECUTE PROCEDURE add_forum_users();
 
+-- DROP TRIGGER IF EXISTS message_insert_trigger ON Message;
+-- CREATE TRIGGER message_insert_trigger AFTER INSERT ON Message
+-- FOR EACH ROW EXECUTE PROCEDURE add_forum_users();

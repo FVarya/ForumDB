@@ -80,23 +80,20 @@ public class ForumService extends DBConnect {
         final UserService userService = new UserService(dataSource);
         if ((user = userService.getUserInfo(body.getAdmin())) == null)
             return new ResponseEntity(Error.getErrorJson("User not found"), HttpStatus.NOT_FOUND);
-        try {
-            final Forum forum = getForumInfo(body.getSlug());
-            if (forum == null) {
-                return PrepareQuery.execute("INSERT INTO Forum VALUES ( ?,?,?)",
-                        prepareStatement -> {
-                            prepareStatement.setString(1, body.getSlug());
-                            prepareStatement.setString(2, body.getTitle());
-                            prepareStatement.setString(3, user.getNickname());
-                            prepareStatement.executeUpdate();
-                            final BigDecimal nul = new BigDecimal(0);
-                            body.setPosts(nul);
-                            body.setThreads(nul);
-                            body.setAdmin(user.getNickname());
-                            return new ResponseEntity(body.getForumJson(), HttpStatus.CREATED);
-                        });
-            }
+        final Forum forum;
+        if ((forum = getForumInfo(body.getSlug())) != null) {
             return new ResponseEntity(forum.getForumJson(), HttpStatus.CONFLICT);
+        }
+        try {
+            return PrepareQuery.execute("INSERT INTO Forum VALUES ( ?,?,?)",
+                    prepareStatement -> {
+                        prepareStatement.setString(1, body.getSlug());
+                        prepareStatement.setString(2, body.getTitle());
+                        prepareStatement.setString(3, user.getNickname());
+                        prepareStatement.executeUpdate();
+                        body.setAdmin(user.getNickname());
+                        return new ResponseEntity(body.getForumJson(), HttpStatus.CREATED);
+                    });
         } catch (SQLException s) {
             return new ResponseEntity(Error.getErrorJson("Something go wrong"), HttpStatus.EXPECTATION_FAILED);
         }
@@ -105,6 +102,7 @@ public class ForumService extends DBConnect {
 
 
     public ResponseEntity userList(String slug, Double limit, String since, Boolean desc) {
+
         if (getForumInfo(slug) == null) {
             return new ResponseEntity(Error.getErrorJson("Forum not found"), HttpStatus.NOT_FOUND);
         }
@@ -124,7 +122,7 @@ public class ForumService extends DBConnect {
                             "WHERE U.nickname IN " +
                             "(SELECT DISTINCT nickname FROM Forum_users " +
                             " WHERE lower(forum) = lower(?) " + strSince + " ORDER BY nickname "
-                             + strSort + strLimit + ") " + " ORDER BY U.nickname " + strSort,
+                            + strSort + strLimit + ") " ,//+ " ORDER BY U.nickname " + strSort,
                     preparedStatement -> {
                         preparedStatement.setString(1, slug);
                         final ResultSet result = preparedStatement.executeQuery();
