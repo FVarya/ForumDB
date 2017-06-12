@@ -3,8 +3,11 @@ package ru.mail.park.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mail.park.db.*;
@@ -12,6 +15,7 @@ import ru.mail.park.db.*;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 
 import ru.mail.park.Error.Error;
 import javax.sql.DataSource;
@@ -27,7 +31,15 @@ import javax.sql.DataSource;
 @Transactional
 public class UserService extends DBConnect{
 
+
+    private  JdbcTemplate template;
+
     @Autowired
+    public UserService(DataSource dataSource, JdbcTemplate template){
+        DBConnect.dataSource = dataSource;
+        this.template = template;
+    }
+
     public UserService(DataSource dataSource){
         DBConnect.dataSource = dataSource;
     }
@@ -125,7 +137,5 @@ public class UserService extends DBConnect{
             n.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Conflict data"), HttpStatus.CONFLICT);
         }
-
     }
-
 }

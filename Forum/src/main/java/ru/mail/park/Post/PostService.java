@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,16 +19,20 @@ import ru.mail.park.User.User;
 import ru.mail.park.User.UserService;
 import ru.mail.park.db.DBConnect;
 import ru.mail.park.db.PrepareQuery;
+import ru.mail.park.db.SelectQuery;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.*;
+import java.text.SimpleDateFormat;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 /**
@@ -41,9 +46,14 @@ public class PostService extends DBConnect {
     private ZonedDateTime moment = ZonedDateTime.now();;
 
     @Autowired
-    public PostService(DataSource dataSource) {
+    public PostService(DataSource dataSource, JdbcTemplate template) {
         DBConnect.dataSource = dataSource;
+        this.template = template;
     }
+
+
+    private final JdbcTemplate template;
+
 
     private Post getPost(BigDecimal id) throws SQLException{
         return PrepareQuery.execute("SELECT M.* FROM Message AS M " +
@@ -127,13 +137,14 @@ public class PostService extends DBConnect {
                                     "WHERE M.parent_id = 0 AND " + s +
                                     " ORDER BY M.message_id " + strSort + strLimit + strMarker +
                                     ") AND " + req +
-                                    " ORDER BY M.path " + strSort,
+                                    " ORDER BY M.path " + strSort + " , M.message_id" + strSort,
                             thread.getId());
                 default:
                     return getPostsSort("SELECT M.author, M.create_date, M.forum, M.message_id, M.is_edit, " +
                                     "M.message, M.parent_id,  M.thread_id " +
                                     " FROM Message AS M  " +
-                                    " WHERE " + req + " ORDER BY M.create_date, M.message_id " + strSort + strLimit + strMarker,
+                                    " WHERE " + req + " ORDER BY M.create_date" + strSort + " , M.message_id "
+                                    + strSort + strLimit + strMarker,
                             thread.getId());
             }
         } catch (SQLException e) {
@@ -167,9 +178,9 @@ public class PostService extends DBConnect {
                 });
     }
 
-    private List<Post> checkParents(Post[] body, Thread thread) throws SQLException {
-        final BigDecimal[] unique =
-                Arrays.stream(body).map(Post::getParent).distinct().toArray(BigDecimal[]::new);
+    public List<Post> checkParents(Post[] /*List<Post>*/ body, Thread thread) throws SQLException {
+        final BigDecimal[] unique = //body.stream().map(Post::getParent).distinct().toArray(BigDecimal[]::new);
+            Arrays.stream(body).map(Post::getParent).distinct().toArray(BigDecimal[]::new);
         final List<Post> parents = new ArrayList<>();
         for(BigDecimal parent: unique){
             if (parent.intValue() != 0)
@@ -178,15 +189,19 @@ public class PostService extends DBConnect {
         return parents;
     }
 
+    private BigDecimal messIdSeq() throws SQLException {
+        return SelectQuery.execute("SELECT nextval('message_message_id_seq')",
+                result->{
+                    result.next();
+                    return result.getBigDecimal(1);
+                });
+    }
+
+
     public ArrayNode createPosts(String thread_slug, Integer thread_id, Post[] body) throws SQLException{
         final ObjectMapper mapp = new ObjectMapper();
         final ArrayNode arrayNode = mapp.createArrayNode();
-        final ZonedDateTime postTime;
-        if(ZonedDateTime.now().getLong(ChronoField.INSTANT_SECONDS) -
-                moment.getLong(ChronoField.INSTANT_SECONDS) <= 120)
-            postTime = moment;
-        else postTime = ZonedDateTime.now();
-        moment = postTime;
+        final ZonedDateTime postTime = ZonedDateTime.now();
 
         final ThreadService threadService = new ThreadService(dataSource);
         final Thread thread;
@@ -199,9 +214,8 @@ public class PostService extends DBConnect {
 
         final List<Post> parents = checkParents(body, thread);
         return PrepareQuery.execute("INSERT INTO Message (thread_id, message, author, create_date, parent_id," +
-                        " path, forum ) " +
-                        "VALUES (?,?,?,?,?,array_append(?, " +
-                        "currval('message_message_id_seq')::INT8), ?) ", Statement.RETURN_GENERATED_KEYS,
+                        " path, forum, message_id ) " +
+                        "VALUES (?,?,?,?,?,array_append(?, ?::INT8), ?, ? )",
                 preparedStatement -> {
                     for (Post post: body) {
                         preparedStatement.setInt(1, thread.getId());
@@ -217,7 +231,7 @@ public class PostService extends DBConnect {
                         }
                         if(post.getParent().equals(BigDecimal.valueOf(0)))
                             preparedStatement.setArray(6,null);
-                        preparedStatement.setString(7, thread.getForum());
+                        preparedStatement.setString(8, thread.getForum());
                         if (post.getCreated() == null) {
                             post.setCreated(postTime);
                             final Timestamp t = new Timestamp(post.getCreated().getLong(ChronoField.INSTANT_SECONDS) * 1000
@@ -227,29 +241,19 @@ public class PostService extends DBConnect {
                             final Timestamp t = Timestamp.valueOf(post.getCreated().toLocalDateTime());
                             preparedStatement.setTimestamp(4, t);
                         }
+                        post.setId(messIdSeq());
+                        preparedStatement.setBigDecimal(7, post.getId());
+                        preparedStatement.setBigDecimal(9, post.getId());
                         preparedStatement.addBatch();
                         post.setForum(thread.getForum());
                         post.setThread_id(thread.getId());
+                        arrayNode.add(post.getPostJson());
                     }
-                    final ArrayNode an = getJsonNodes(body, arrayNode, preparedStatement);
+                    preparedStatement.executeBatch();
                     addForumUsers(thread.getForum(), body);
                     updForumMessgs(thread.getForum(), body.length);
-                    return an;
+                    return arrayNode;
                 });
-    }
-
-    private ArrayNode getJsonNodes(Post[] body, ArrayNode arrayNode,
-                                   PreparedStatement preparedStatement) throws SQLException {
-        preparedStatement.executeBatch();
-        final ResultSet rs = preparedStatement.getGeneratedKeys();
-        int i = 0;
-        while (rs.next()) {
-            final BigDecimal id = rs.getBigDecimal(1);
-            body[i].setId(id);
-            arrayNode.add(body[i].getPostJson());
-            i++;
-        }
-        return arrayNode;
     }
 
 

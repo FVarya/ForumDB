@@ -3,15 +3,20 @@ package ru.mail.park.Post;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
+import java.sql.BatchUpdateException;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Objects;
 
 import ru.mail.park.Error.Error;
+import ru.mail.park.Thread.Thread;
 
 /**
  * Created by Варя on 21.03.2017.
@@ -24,7 +29,7 @@ public class PostController {
 
     @PostMapping("/api/thread/{slug or id}/create")
     public ResponseEntity createThread(@PathVariable("slug or id") String slug_or_id,
-                                       @RequestBody Post[] posts){
+                                       @RequestBody /*List<Post> posts*/Post[] posts) {
         Integer id = null;
         try {
             id = Integer.parseInt(slug_or_id);

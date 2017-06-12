@@ -140,24 +140,21 @@ public class ThreadService extends DBConnect {
     }
 
     private int updTreadVotes(Thread thread, int voice) throws SQLException {
-        return PrepareQuery.execute("UPDATE Thread SET votes = (votes) + (?) " +
+        return PrepareQuery.execute("UPDATE Thread SET votes = ? " +
                         "WHERE thread_id = ? RETURNING votes;",
                 preparedStatement -> {
-                    preparedStatement.setInt(1, voice);
+                    preparedStatement.setInt(1, voice + thread.getVotes());
                     preparedStatement.setInt(2, thread.getId());
                     preparedStatement.executeQuery();
                     final ResultSet resultSet = preparedStatement.executeQuery();
                     resultSet.next();
-                    System.out.println(voice);
-                    int k = resultSet.getInt(1);
-                    System.out.println(k);
-                    return k;
+                    return resultSet.getInt(1);
                 });
     }
 
     private int updTreadVotes(Thread thread) throws SQLException {
         return PrepareQuery.execute("UPDATE Thread SET votes = (SELECT SUM(mark) FROM Tlike " +
-                        "WHERE (thread_id) = ?) WHERE thread_id = ? RETURNING votes;",
+                        "WHERE thread_id = ?) WHERE thread_id = ? RETURNING votes;",
                 preparedStatement -> {
                     preparedStatement.setInt(1, thread.getId());
                     preparedStatement.setInt(2, thread.getId());
@@ -183,7 +180,7 @@ public class ThreadService extends DBConnect {
                         preparedStatement.setInt(3, thread.getId());
                         preparedStatement.setInt(1, body.getVoice());
                         final int n = preparedStatement.executeUpdate();
-                        //if(n != 0) thread.setVotes(updTreadVotes(thread));
+                        if(n != 0) thread.setVotes(updTreadVotes(thread));
                         return n;
                     });
             if (num == 0) {
@@ -193,11 +190,11 @@ public class ThreadService extends DBConnect {
                             preparedStatement.setInt(2, thread.getId());
                             preparedStatement.setInt(3, body.getVoice());
                             preparedStatement.executeUpdate();
-                            //thread.setVotes(updTreadVotes(thread, body.getVoice()));
+                            thread.setVotes(updTreadVotes(thread, body.getVoice()));
                             return null;
                         });
             }
-            thread.setVotes(updTreadVotes(thread));
+            //thread.setVotes(updTreadVotes(thread));
         } catch (SQLException q) {
             q.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Something gone wrong"), HttpStatus.EXPECTATION_FAILED);
