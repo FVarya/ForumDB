@@ -72,12 +72,12 @@ CREATE INDEX IF NOT EXISTS idx_like_thread_id ON TLike (thread_id);
 
 CREATE TABLE IF NOT EXISTS Forum_users (
   nickname  citext NOT NULL,
-  forum citext NOT NULL,
-  FOREIGN KEY (nickname) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE,
-  FOREIGN KEY (forum) REFERENCES Forum (slug) ON DELETE RESTRICT ON UPDATE CASCADE
+  forum citext NOT NULL
+--   FOREIGN KEY (nickname) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE,
+--   FOREIGN KEY (forum) REFERENCES Forum (slug) ON DELETE RESTRICT ON UPDATE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_forum_users_nickname ON Forum_users (nickname);
-CREATE INDEX IF NOT EXISTS idx_forum_users_forum ON Forum_users (forum);
+-- CREATE INDEX IF NOT EXISTS idx_forum_users_nickname ON Forum_users (nickname);
+-- CREATE INDEX IF NOT EXISTS idx_forum_users_forum ON Forum_users (forum);
 
 
 CREATE OR REPLACE FUNCTION add_forum_users() RETURNS TRIGGER AS '

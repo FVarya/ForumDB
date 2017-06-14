@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,8 +27,10 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.*;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,17 +46,11 @@ import java.util.stream.Collectors;
 @Transactional
 public class PostService extends DBConnect {
     private Double marker;
-    private ZonedDateTime moment = ZonedDateTime.now();;
 
     @Autowired
-    public PostService(DataSource dataSource, JdbcTemplate template) {
+    public PostService(DataSource dataSource) {
         DBConnect.dataSource = dataSource;
-        this.template = template;
     }
-
-
-    private final JdbcTemplate template;
-
 
     private Post getPost(BigDecimal id) throws SQLException{
         return PrepareQuery.execute("SELECT M.* FROM Message AS M " +
@@ -68,20 +65,21 @@ public class PostService extends DBConnect {
                             resultSet.getBigDecimal(7));
                     post1.setId(resultSet.getBigDecimal(1));
                     post1.setForum(resultSet.getString(9));
-                    //post1.setPath((Integer[])resultSet.getArray(8).getArray());
                     return post1;
                 });
     }
 
-    private ResponseEntity getPostsSort(String query, Integer id) throws SQLException{
+    private ResponseEntity getPostsSort(String query, Integer id, Integer limit, Integer offset, boolean flag) throws SQLException{
         return PrepareQuery.execute(query,
                 preparedStatement -> {
                     preparedStatement.setInt(1, id);
+                    preparedStatement.setInt(2, limit);
+                    preparedStatement.setInt(3, offset);
                     final ResultSet resultSet = preparedStatement.executeQuery();
                     final ObjectMapper mapp = new ObjectMapper();
                     final ObjectNode node = mapp.createObjectNode();
                     final ArrayNode arrayNode = mapp.createArrayNode();
-                    node.put("marker", "marker");
+                    ArrayList<Integer> p1 = new ArrayList<>();
                     while (resultSet.next()) {
                         final String s = resultSet.getString(2).replace(' ', 'T') + ":00";
                         final Post post = new Post(resultSet.getInt(8),
@@ -89,66 +87,62 @@ public class PostService extends DBConnect {
                                 s, resultSet.getBoolean(5), resultSet.getBigDecimal(7));
                         post.setForum(resultSet.getString(3));
                         post.setId(resultSet.getBigDecimal(4));
+                        if (flag) {
+                            post.setPath((Integer[]) resultSet.getArray(9).getArray());
+                            p1.add(post.getPath()[0]);
+                        }
                         arrayNode.add(post.getPostJson());
                     }
+                    Integer i = offset + arrayNode.size();
+                    if(flag){
+                        List<Integer> u = p1.stream().distinct().collect(Collectors.toList());
+                        i = offset + u.size();
+                    }
+                    node.put("marker", i.toString());
                     node.set("posts", arrayNode);
                     return new ResponseEntity(node, HttpStatus.OK);
                 });
     }
 
     @SuppressWarnings("OverlyComplexMethod")
-    public ResponseEntity getPostInfo(String slug, Integer id, Double limit, String mark, Boolean desc, String sort) {
+    public ResponseEntity getPostInfo(String slug, String sort,
+                                      Integer id, Integer limit, Integer offset, boolean desc) {
         try {
             final ThreadService threadService = new ThreadService(dataSource);
             final Thread thread;
-            if((thread = threadService.getThreadInfo(slug, id)) == null)
+            if((thread = threadService.getFullThread(slug, id)) == null)
                 throw new SQLException("Thread not found");
-            String strSort = " ASC ";
-            if (desc)
-                strSort = " DESC ";
-            String strMarker = "";
-            if (mark != null) {
-                strMarker = " OFFSET " + this.marker.intValue();
-            }
-            String strLimit = "";
-            if (limit != null) {
-                strLimit = " LIMIT " + limit.intValue();
-                if (mark != null)
-                    this.marker += limit;
-                else this.marker = limit;
-            }
             if (sort == null) sort = "flat";
-            final String req = " M.thread_id = ?";
+            final String descOrAsc = (desc ? "DESC " : "ASC ");
             switch (sort) {
                 case "tree":
                     return getPostsSort("SELECT M.author, M.create_date, M.forum, M.message_id, M.is_edit, " +
                                     "M.message, M.parent_id,  M.thread_id " +
                                     "FROM Message M " +
-                                    "WHERE " + req +
-                                    "ORDER BY M.path " + strSort + strLimit + strMarker,
-                            thread.getId());
+                                    "WHERE thread_id = ? ORDER BY path " +
+                                    (desc ? "DESC " : "ASC ") + "LIMIT ? OFFSET ?;",
+                            thread.getId(), limit, offset, false);
                 case "parent_tree":
                     final String s = "M.thread_id = " + thread.getId();
                     return getPostsSort("SELECT M.author, M.create_date, M.forum, M.message_id, M.is_edit, " +
-                                    "M.message, M.parent_id,  M.thread_id " +
+                                    "M.message, M.parent_id,  M.thread_id, path " +
                                     "FROM Message M " +
                                     "WHERE M.path[1] IN ( " +
                                     "SELECT M.message_id FROM Message AS M " +
-                                    "WHERE M.parent_id = 0 AND " + s +
-                                    " ORDER BY M.message_id " + strSort + strLimit + strMarker +
-                                    ") AND " + req +
-                                    " ORDER BY M.path " + strSort + " , M.message_id" + strSort,
-                            thread.getId());
+                                    "WHERE parent_id = 0 AND " +
+                                    "thread_id = ? ORDER BY message_id " +
+                                    (desc ? "DESC " : "ASC ") + " LIMIT ? OFFSET ?)"+
+                                    "AND thread_id  = " + thread.getId() +" ORDER BY path " + descOrAsc + " , message_id " + descOrAsc,
+                            thread.getId(), limit, offset, true);
                 default:
                     return getPostsSort("SELECT M.author, M.create_date, M.forum, M.message_id, M.is_edit, " +
                                     "M.message, M.parent_id,  M.thread_id " +
                                     " FROM Message AS M  " +
-                                    " WHERE " + req + " ORDER BY M.create_date" + strSort + " , M.message_id "
-                                    + strSort + strLimit + strMarker,
-                            thread.getId());
+                                    " WHERE thread_id = ? ORDER BY create_date "
+                                    + descOrAsc + ", message_id " + descOrAsc + "LIMIT ? OFFSET ?;",
+                            thread.getId(), limit, offset, false);
             }
         } catch (SQLException e) {
-            e.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Forum not Found"), HttpStatus.NOT_FOUND);
         }
     }
@@ -178,8 +172,8 @@ public class PostService extends DBConnect {
                 });
     }
 
-    public List<Post> checkParents(Post[] /*List<Post>*/ body, Thread thread) throws SQLException {
-        final BigDecimal[] unique = //body.stream().map(Post::getParent).distinct().toArray(BigDecimal[]::new);
+    public List<Post> checkParents(Post[] body, Thread thread) throws SQLException {
+        final BigDecimal[] unique =
             Arrays.stream(body).map(Post::getParent).distinct().toArray(BigDecimal[]::new);
         final List<Post> parents = new ArrayList<>();
         for(BigDecimal parent: unique){
@@ -205,7 +199,7 @@ public class PostService extends DBConnect {
 
         final ThreadService threadService = new ThreadService(dataSource);
         final Thread thread;
-        if((thread = threadService.getThreadInfo(thread_slug, thread_id)) == null)
+        if((thread = threadService.getFullThread(thread_slug, thread_id)) == null)
             throw new SQLException("Not found");
 
         final UserService userService = new UserService(dataSource);
@@ -318,7 +312,6 @@ public class PostService extends DBConnect {
             }
             return new ResponseEntity(node, HttpStatus.OK);
         } catch (SQLException e) {
-            e.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
         }
     }
@@ -340,8 +333,8 @@ public class PostService extends DBConnect {
             }
             return new ResponseEntity(post.getPostJson(), HttpStatus.OK);
         } catch (SQLException n) {
-            n.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
         }
     }
+
 }

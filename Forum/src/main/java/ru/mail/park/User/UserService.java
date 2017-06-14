@@ -31,15 +31,7 @@ import javax.sql.DataSource;
 @Transactional
 public class UserService extends DBConnect{
 
-
-    private  JdbcTemplate template;
-
     @Autowired
-    public UserService(DataSource dataSource, JdbcTemplate template){
-        DBConnect.dataSource = dataSource;
-        this.template = template;
-    }
-
     public UserService(DataSource dataSource){
         DBConnect.dataSource = dataSource;
     }
@@ -67,7 +59,6 @@ public class UserService extends DBConnect{
                     });
         }
         catch (SQLException e){
-            e.printStackTrace();
             try {
                 return PrepareQuery.execute("INSERT INTO FUser VALUES ( ?,?,?,?) ",
                         preparedStatement -> {
@@ -80,7 +71,6 @@ public class UserService extends DBConnect{
                         });
             }
             catch (SQLException n){
-                n.printStackTrace();
                 return new ResponseEntity(Error.getErrorJson("Something gone wrong"), HttpStatus.EXPECTATION_FAILED);
             }
         }
@@ -100,7 +90,6 @@ public class UserService extends DBConnect{
                     });
         }
         catch (SQLException e){
-            e.printStackTrace();
             return null;
         }
     }
@@ -134,7 +123,6 @@ public class UserService extends DBConnect{
                         return new ResponseEntity(body.getUserJson(), HttpStatus.OK);
                     });
         } catch (SQLException n) {
-            n.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Conflict data"), HttpStatus.CONFLICT);
         }
     }

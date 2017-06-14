@@ -1,12 +1,12 @@
 package ru.mail.park.Post;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
@@ -49,6 +49,8 @@ public class Post {
 
     public ZonedDateTime getCreated(){return created;}
 
+    public String getCreate(){return created.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);}
+
     public String getMessage () {return this.message;}
 
     public String getAuthor (){ return this.author;}
@@ -79,6 +81,7 @@ public class Post {
 
     public void setThread_id (Integer thread_id) {this.thread_id = thread_id; }
 
+    @JsonIgnore
     public ObjectNode getPostJson(){
         final ObjectNode node = map.createObjectNode();
         node.put("author", this.author);

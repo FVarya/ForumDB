@@ -1,6 +1,7 @@
 package ru.mail.park.Thread;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -84,6 +85,7 @@ public class Thread {
         return forum;
     }
 
+    @JsonIgnore
     public ObjectNode getThreadJson(){
         final ObjectNode node = map.createObjectNode();
         node.put("author", this.author);
@@ -96,4 +98,5 @@ public class Thread {
         if(votes != null) node.put("votes", this.votes);
         return node;
     }
+
 }

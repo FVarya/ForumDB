@@ -5,6 +5,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.mail.park.Error.Error;
+import ru.mail.park.Thread.Thread;
+
+import java.sql.Timestamp;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 
 /**
@@ -32,7 +41,7 @@ public class ForumController {
         if((forum = forumService.getFullForum(slug)) != null) {
             return new ResponseEntity(forum.getForumJson(), HttpStatus.OK);
         }
-        return new ResponseEntity(Error.getErrorJson("Forum not found"), HttpStatus.NOT_FOUND);
+        return new ResponseEntity(Error.getErrorJson("Forum not found"), NOT_FOUND);
     }
 
     @GetMapping("/api/forum/{slug}/users")
@@ -49,13 +58,12 @@ public class ForumController {
 
     @GetMapping("/api/forum/{slug}/threads")
     public ResponseEntity getThreadForum(@PathVariable("slug") String slug,
-                                   @RequestParam(value = "limit", required = false) Double limit ,
+                                   @RequestParam(value = "limit", required = false) Integer limit ,
                                    @RequestParam(value = "since", required = false) String since,
-                                   @RequestParam(value = "desc", required = false) String desc){
-        boolean sort = false;
-        if(desc != null && desc.equals("true")){
-            sort = true;
+                                   @RequestParam(value = "desc", required = false)  Boolean desc){
+        if (desc == null) {
+            desc = false;
         }
-        return forumService.threadList(slug, limit, since, sort);
+        return forumService.threadList(slug, limit, since, desc);
     }
 }
