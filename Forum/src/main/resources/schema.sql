@@ -35,7 +35,6 @@ CREATE TABLE IF NOT EXISTS Thread(
 );
 
 
--- CREATE INDEX IF NOT EXISTS idx_thread_author ON Thread (lower(author));
 CREATE INDEX IF NOT EXISTS idx_thread_forum ON Thread (lower(forum), create_date);
 CREATE INDEX IF NOT EXISTS idx_thread_slug ON Thread (LOWER(slug));
 
@@ -54,8 +53,6 @@ CREATE TABLE IF NOT EXISTS Message(
   FOREIGN KEY (forum) REFERENCES Forum (slug) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
--- CREATE INDEX IF NOT EXISTS idx_message_author ON Message (lower(author));
--- CREATE INDEX IF NOT EXISTS idx_message_thread_id ON Message (thread_id);
 CREATE INDEX IF NOT EXISTS idx_message_path ON Message ((path[1]), thread_id, message_id);
 CREATE INDEX IF NOT EXISTS idx_posts_get ON Message (thread_id, message_id );
 CREATE INDEX IF NOT EXISTS idx_message_parents ON Message(parent_id, thread_id,message_id);
@@ -79,8 +76,6 @@ CREATE TABLE IF NOT EXISTS Forum_users (
 --   FOREIGN KEY (nickname) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE,
 --   FOREIGN KEY (forum) REFERENCES Forum (slug) ON DELETE RESTRICT ON UPDATE CASCADE
 );
--- CREATE INDEX IF NOT EXISTS idx_forum_users_nickname ON Forum_users (nickname);
--- CREATE UNIQUE INDEX ON Forum_users (nickname, forum) ;
 CREATE INDEX IF NOT EXISTS idx_forum_users_forum ON Forum_users (lower(forum));
 
 
@@ -96,7 +91,3 @@ END;
 DROP TRIGGER IF EXISTS thread_insert_trigger ON Thread;
 CREATE TRIGGER thread_insert_trigger AFTER INSERT ON Thread
 FOR EACH ROW EXECUTE PROCEDURE add_forum_users();
-
--- DROP TRIGGER IF EXISTS message_insert_trigger ON Message;
--- CREATE TRIGGER message_insert_trigger AFTER INSERT ON Message
--- FOR EACH ROW EXECUTE PROCEDURE add_forum_users();
