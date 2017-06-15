@@ -52,6 +52,17 @@ public class PostService extends DBConnect {
         DBConnect.dataSource = dataSource;
     }
 
+
+    private static final RowMapper<Post> postMapper = (rs, num) -> {
+        final String s = rs.getString(5).replace(' ', 'T') + ":00";
+        Post post = new Post(rs.getInt(2), rs.getString(3),
+                rs.getString(4), s, rs.getBoolean(6),
+                rs.getInt(7));
+        post.setId(rs.getInt(1));
+        post.setForum(rs.getString(9));
+        return post;
+    };
+
     private Post getPost(BigDecimal id) throws SQLException{
         return PrepareQuery.execute("SELECT * FROM Message " +
                         "WHERE message_id = ?",
@@ -62,8 +73,8 @@ public class PostService extends DBConnect {
                     final String s = resultSet.getString(5).replace(' ', 'T') + ":00";
                     final Post post1 = new Post(resultSet.getInt(2), resultSet.getString(3),
                             resultSet.getString(4), s, resultSet.getBoolean(6),
-                            resultSet.getBigDecimal(7));
-                    post1.setId(resultSet.getBigDecimal(1));
+                            resultSet.getInt(7));
+                    post1.setId(resultSet.getInt(1));
                     post1.setForum(resultSet.getString(9));
                     return post1;
                 });
@@ -84,9 +95,9 @@ public class PostService extends DBConnect {
                         final String s = resultSet.getString(2).replace(' ', 'T') + ":00";
                         final Post post = new Post(resultSet.getInt(8),
                                 resultSet.getString(6), resultSet.getString(1),
-                                s, resultSet.getBoolean(5), resultSet.getBigDecimal(7));
+                                s, resultSet.getBoolean(5), resultSet.getInt(7));
                         post.setForum(resultSet.getString(3));
-                        post.setId(resultSet.getBigDecimal(4));
+                        post.setId(resultSet.getInt(4));
                         if (flag) {
                             post.setPath((Integer[]) resultSet.getArray(9).getArray());
                             p1.add(post.getPath()[0]);
@@ -183,14 +194,14 @@ public class PostService extends DBConnect {
         return parents;
     }
 
-    private List<BigDecimal> messIdSeq(int num) throws SQLException {
+    private List<Integer> messIdSeq(int num) throws SQLException {
         return PrepareQuery.execute("SELECT nextval('message_message_id_seq') from generate_series(1, ?);",
                 preparedStatement->{
                     preparedStatement.setInt(1, num);
-                    final List<BigDecimal> arr = new ArrayList<>();
+                    final List<Integer> arr = new ArrayList<>();
                     final ResultSet result = preparedStatement.executeQuery();
                     while (result.next())
-                        arr.add(result.getBigDecimal(1));
+                        arr.add(result.getInt(1));
                     return arr;
                 });
     }
@@ -215,13 +226,13 @@ public class PostService extends DBConnect {
                         " path, forum, message_id ) " +
                         "VALUES (?,?,?,?,?,array_append(?, ?::INT8), ?, ? )",
                 preparedStatement -> {
-                    final List<BigDecimal> ids = messIdSeq(body.length);
+                    final List<Integer> ids = messIdSeq(body.length);
                     int i = 0;
                     for (Post post: body) {
                         preparedStatement.setInt(1, thread.getId());
                         preparedStatement.setString(2, post.getMessage());
                         preparedStatement.setString(3, post.getAuthor());
-                        preparedStatement.setBigDecimal(5, post.getParent());
+                        preparedStatement.setInt(5, post.getParent());
                         for(Post parent: parents){
                             if(parent.getId().equals(post.getParent())) {
                                 preparedStatement.setArray(6,
@@ -242,8 +253,8 @@ public class PostService extends DBConnect {
                             preparedStatement.setTimestamp(4, t);
                         }
                         post.setId(ids.get(i++));
-                        preparedStatement.setBigDecimal(7, post.getId());
-                        preparedStatement.setBigDecimal(9, post.getId());
+                        preparedStatement.setInt(7, post.getId());
+                        preparedStatement.setInt(9, post.getId());
                         preparedStatement.addBatch();
                         post.setForum(thread.getForum());
                         post.setThread_id(thread.getId());
@@ -269,8 +280,8 @@ public class PostService extends DBConnect {
                     final String s = resultSet.getString(5).replace(' ', 'T') + ":00";
                     final Post post = new Post(resultSet.getInt(2), resultSet.getString(3),
                             resultSet.getString(4), s, resultSet.getBoolean(6),
-                            resultSet.getBigDecimal(7));
-                    post.setId(resultSet.getBigDecimal(1));
+                            resultSet.getInt(7));
+                    post.setId(resultSet.getInt(1));
                     post.setForum(resultSet.getString(9));
                     post.setPath((Integer[])resultSet.getArray(8).getArray());
                     return post;

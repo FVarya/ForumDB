@@ -16,9 +16,9 @@ import java.util.Objects;
  */
 @SuppressWarnings({"InstanceMethodNamingConvention", "MethodParameterNamingConvention"})
 public class Post {
-    private BigDecimal id;
+    private Integer id;
     private Integer thread_id;
-    private BigDecimal parent = new BigDecimal(0);
+    private Integer parent = 0;
     private String message;
     private String author;
     private String forum;
@@ -30,7 +30,7 @@ public class Post {
     @JsonCreator
     public Post(@JsonProperty("thread") Integer thread_id, @JsonProperty("message") String message,
                   @JsonProperty("author") String author, @JsonProperty("created") String created,
-                  @JsonProperty("isEdited") Boolean edited, @JsonProperty("parent") BigDecimal parent){
+                  @JsonProperty("isEdited") Boolean edited, @JsonProperty("parent") Integer parent){
         this.thread_id = thread_id;
         this.message = message;
         this.author = author;
@@ -41,7 +41,7 @@ public class Post {
         if(parent != null) { this.parent = parent; }
     }
 
-    public BigDecimal getParent (){ return parent; }
+    public Integer getParent (){ return parent; }
 
     public void setCreated(ZonedDateTime created) {
         this.created = created;
@@ -61,9 +61,9 @@ public class Post {
 
     public void setForum (String forum) {this.forum = forum; }
 
-    public void setId (BigDecimal id) {this.id = id; }
+    public void setId (Integer id) {this.id = id; }
 
-    public BigDecimal getId() {
+    public Integer getId() {
         return id;
     }
 
