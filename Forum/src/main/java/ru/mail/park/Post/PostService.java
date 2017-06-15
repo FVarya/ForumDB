@@ -53,8 +53,7 @@ public class PostService extends DBConnect {
     }
 
     private Post getPost(BigDecimal id) throws SQLException{
-        return PrepareQuery.execute("SELECT thread_id, message, author, create_date,is_edit, parent_id," +
-                        "message_id, forum FROM Message " +
+        return PrepareQuery.execute("SELECT * FROM Message " +
                         "WHERE message_id = ?",
                 preparedStatement -> {
                     preparedStatement.setBigDecimal(1, id);
@@ -326,8 +325,6 @@ public class PostService extends DBConnect {
     public ResponseEntity setPost(BigDecimal id, Post body) {
         try {
             final Post post = getPost(id);
-            if(post == null)
-                return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
             if (body.getMessage() != null && !post.getMessage().equals(body.getMessage())) {
                 return PrepareQuery.execute("UPDATE Message SET (message, is_edit) = (?, true) " +
                                 "WHERE message_id = ?",
