@@ -82,13 +82,13 @@ public class PostController {
     }
 
     @GetMapping("api/post/{id}/details")
-    public ResponseEntity getPost(@PathVariable("id")BigDecimal id,
+    public ResponseEntity getPost(@PathVariable("id")Integer id,
                                   @RequestParam(value = "related", required = false) String[] related){
         return postService.getPostRelated(id, related);
     }
 
     @PostMapping("api/post/{id}/details")
-    public ResponseEntity setPost(@PathVariable("id")BigDecimal id, @RequestBody Post body){
+    public ResponseEntity setPost(@PathVariable("id")Integer id, @RequestBody Post body){
         return postService.setPost(id, body);
     }
 

@@ -47,6 +47,7 @@ public class Post {
         this.created = created;
     }
 
+    @JsonIgnore
     public ZonedDateTime getCreated(){return created;}
 
     public String getCreate(){return created.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);}

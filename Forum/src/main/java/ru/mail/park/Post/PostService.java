@@ -46,12 +46,18 @@ import java.util.stream.Collectors;
 @Transactional
 public class PostService extends DBConnect {
     private Double marker;
+    private JdbcTemplate template;
 
-    @Autowired
+    //@Autowired
     public PostService(DataSource dataSource) {
         DBConnect.dataSource = dataSource;
     }
 
+    @Autowired
+    public PostService(DataSource dataSource, JdbcTemplate template) {
+        DBConnect.dataSource = dataSource;
+        this.template = template;
+    }
 
     private static final RowMapper<Post> postMapper = (rs, num) -> {
         final String s = rs.getString(5).replace(' ', 'T') + ":00";
@@ -63,21 +69,31 @@ public class PostService extends DBConnect {
         return post;
     };
 
-    private Post getPost(BigDecimal id) throws SQLException{
-        return PrepareQuery.execute("SELECT * FROM Message " +
-                        "WHERE message_id = ?",
-                preparedStatement -> {
-                    preparedStatement.setBigDecimal(1, id);
-                    final ResultSet resultSet = preparedStatement.executeQuery();
-                    resultSet.next();
-                    final String s = resultSet.getString(5).replace(' ', 'T') + ":00";
-                    final Post post1 = new Post(resultSet.getInt(2), resultSet.getString(3),
-                            resultSet.getString(4), s, resultSet.getBoolean(6),
-                            resultSet.getInt(7));
-                    post1.setId(resultSet.getInt(1));
-                    post1.setForum(resultSet.getString(9));
-                    return post1;
-                });
+//    private Post getPost(Integer id) throws SQLException{
+//        return PrepareQuery.execute("SELECT * FROM Message " +
+//                        "WHERE message_id = ?",
+//                preparedStatement -> {
+//                    preparedStatement.setInt(1, id);
+//                    final ResultSet resultSet = preparedStatement.executeQuery();
+//                    resultSet.next();
+//                    final String s = resultSet.getString(5).replace(' ', 'T') + ":00";
+//                    final Post post1 = new Post(resultSet.getInt(2), resultSet.getString(3),
+//                            resultSet.getString(4), s, resultSet.getBoolean(6),
+//                            resultSet.getInt(7));
+//                    post1.setId(resultSet.getInt(1));
+//                    post1.setForum(resultSet.getString(9));
+//                    return post1;
+//                });
+//    }
+
+    public Post getPost(int id){
+        try{
+            final String sql = "SELECT * FROM message WHERE message_id = ?;";
+            return template.queryForObject(sql, postMapper, id);
+        } catch (Exception e){
+            //e.printStackTrace();
+            return null;
+        }
     }
 
     private ResponseEntity getPostsSort(String query, Integer id, Integer limit, Integer offset, boolean flag) throws SQLException{
@@ -184,11 +200,11 @@ public class PostService extends DBConnect {
     }
 
     public List<Post> checkParents(Post[] body, Thread thread) throws SQLException {
-        final BigDecimal[] unique =
-            Arrays.stream(body).map(Post::getParent).distinct().toArray(BigDecimal[]::new);
+        final Integer[] unique =
+            Arrays.stream(body).map(Post::getParent).distinct().toArray(Integer[]::new);
         final List<Post> parents = new ArrayList<>();
-        for(BigDecimal parent: unique){
-            if (parent.intValue() != 0)
+        for(Integer parent: unique){
+            if (parent != 0)
                 parents.add(getParent(parent, thread));
         }
         return parents;
@@ -240,7 +256,7 @@ public class PostService extends DBConnect {
                                 break;
                             }
                         }
-                        if(post.getParent().equals(BigDecimal.valueOf(0)))
+                        if(post.getParent() == 0)
                             preparedStatement.setArray(6,null);
                         preparedStatement.setString(8, thread.getForum());
                         if (post.getCreated() == null) {
@@ -268,11 +284,11 @@ public class PostService extends DBConnect {
     }
 
 
-    private Post getParent(BigDecimal parent, Thread thread) throws SQLException {
+    private Post getParent(Integer parent, Thread thread) throws SQLException {
         return PrepareQuery.execute("SELECT * FROM Message " +
                         "WHERE message_id = ? and thread_id = ?",
                 preparedStatement -> {
-                    preparedStatement.setBigDecimal(1, parent);
+                    preparedStatement.setInt(1, parent);
                     preparedStatement.setInt(2, thread.getId());
                     final ResultSet resultSet = preparedStatement.executeQuery();
                     if (!resultSet.next())
@@ -289,7 +305,7 @@ public class PostService extends DBConnect {
     }
 
     @SuppressWarnings("OverlyComplexMethod")
-    public ResponseEntity getPostRelated(BigDecimal id, String[] related) {
+    public ResponseEntity getPostRelated(Integer id, String[] related) {
         final ObjectMapper map = new ObjectMapper();
         final ObjectNode node = map.createObjectNode();
         boolean user = false;
@@ -308,8 +324,10 @@ public class PostService extends DBConnect {
                 }
             }
         }
-        try {
+        //try {
             final Post post = getPost(id);
+            if(post == null)
+                return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
             node.set("post", post.getPostJson());
             if (user) {
                 final UserService userService = new UserService(dataSource);
@@ -328,20 +346,22 @@ public class PostService extends DBConnect {
                 node.set("thread", thread1.getThreadJson());
             }
             return new ResponseEntity(node, HttpStatus.OK);
-        } catch (SQLException e) {
-            return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
-        }
+//        } catch (SQLException e) {
+//            return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
+//        }
     }
 
-    public ResponseEntity setPost(BigDecimal id, Post body) {
+    public ResponseEntity setPost(Integer id, Post body) {
         try {
             final Post post = getPost(id);
+            if(post == null)
+                return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
             if (body.getMessage() != null && !post.getMessage().equals(body.getMessage())) {
                 return PrepareQuery.execute("UPDATE Message SET (message, is_edit) = (?, true) " +
                                 "WHERE message_id = ?",
                         preparedStatement -> {
                             preparedStatement.setString(1, body.getMessage());
-                            preparedStatement.setBigDecimal(2, id);
+                            preparedStatement.setInt(2, id);
                             preparedStatement.executeUpdate();
                             post.setMessage(body.getMessage());
                             post.setIs_edit();
