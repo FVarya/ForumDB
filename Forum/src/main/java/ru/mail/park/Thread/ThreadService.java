@@ -1,8 +1,11 @@
 package ru.mail.park.Thread;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mail.park.Error.Error;
@@ -18,7 +21,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by Варя on 16.03.2017.
@@ -27,7 +33,6 @@ import java.time.temporal.ChronoField;
 @Service
 @Transactional
 public class ThreadService extends DBConnect {
-
     @Autowired
     public ThreadService(DataSource dataSource) {
         DBConnect.dataSource = dataSource;
@@ -56,36 +61,10 @@ public class ThreadService extends DBConnect {
                         return thread;
                     });
         } catch (SQLException e) {
-            e.printStackTrace();
             return null;
         }
     }
 
-    public Thread getThreadInfo(String slug, Integer t_id) {
-        try {
-            String req = "lower(slug) = lower(?)";
-            if (t_id != null)
-                req = "thread_id = ?";
-            return PrepareQuery.execute("SELECT * FROM Thread WHERE " + req,
-                    preparedStatement -> {
-                        if (t_id != null) {
-                            preparedStatement.setInt(1, t_id);
-                        } else preparedStatement.setString(1, slug);
-                        final ResultSet resultSet = preparedStatement.executeQuery();
-                        resultSet.next();
-                        final String s = resultSet.getString(3).replace(' ', 'T') + ":00";
-                        final Thread thread = new Thread(resultSet.getString(2),
-                                resultSet.getString(1), resultSet.getString(5),
-                                resultSet.getString(4), s);
-                        thread.setId(resultSet.getInt(7));
-                        thread.setForum(resultSet.getString(6));
-                        return thread;
-                    });
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
 
     private void updForumThreads(String slug) throws SQLException {
         PrepareQuery.execute("UPDATE Forum SET threads = threads + 1 WHERE lower(slug) = lower(?)",
@@ -174,34 +153,24 @@ public class ThreadService extends DBConnect {
             return new ResponseEntity(Error.getErrorJson("User not found"), HttpStatus.NOT_FOUND);
         }
         try {
-            final int num = PrepareQuery.execute("UPDATE TLike SET mark = ? WHERE author = ? and thread_id = ?",
+            final int num = PrepareQuery.execute("INSERT INTO TLike (author, thread_id, mark) " +
+                            "VALUES(?,?,?) ON CONFLICT(author, thread_id) " +
+                            "DO UPDATE SET mark = excluded.mark ",
                     preparedStatement -> {
-                        preparedStatement.setString(2, body.getAuthor());
-                        preparedStatement.setInt(3, thread.getId());
-                        preparedStatement.setInt(1, body.getVoice());
-                        final int n = preparedStatement.executeUpdate();
-                        if(n != 0) thread.setVotes(updTreadVotes(thread));
-                        return n;
+                        preparedStatement.setString(1, body.getAuthor());
+                        preparedStatement.setInt(2, thread.getId());
+                        preparedStatement.setInt(3, body.getVoice());
+                        return preparedStatement.executeUpdate();
                     });
-            if (num == 0) {
-                PrepareQuery.execute("INSERT INTO TLike values(?, ?, ?)",
-                        preparedStatement -> {
-                            preparedStatement.setString(1, body.getAuthor());
-                            preparedStatement.setInt(2, thread.getId());
-                            preparedStatement.setInt(3, body.getVoice());
-                            preparedStatement.executeUpdate();
-                            thread.setVotes(updTreadVotes(thread, body.getVoice()));
-                            return null;
-                        });
-            }
-            //thread.setVotes(updTreadVotes(thread));
+            if(num == 0)
+                thread.setVotes(updTreadVotes(thread, body.getVoice()));
+            else thread.setVotes(updTreadVotes(thread));
         } catch (SQLException q) {
             q.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Something gone wrong"), HttpStatus.EXPECTATION_FAILED);
         }
         return new ResponseEntity(thread.getThreadJson(), HttpStatus.OK);
     }
-
 
     public ResponseEntity changeThread(String slug, Integer id, Thread body) {
         final Thread thread;
@@ -228,8 +197,8 @@ public class ThreadService extends DBConnect {
                         return new ResponseEntity(thread.getThreadJson(), HttpStatus.OK);
                     });
         } catch (SQLException n) {
-            n.printStackTrace();
             return new ResponseEntity(Error.getErrorJson("Something gone wrong"), HttpStatus.EXPECTATION_FAILED);
         }
     }
+
 }

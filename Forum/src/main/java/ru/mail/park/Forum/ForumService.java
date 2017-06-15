@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mail.park.Error.Error;
@@ -19,6 +21,8 @@ import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by Варя on 14.03.2017.
@@ -28,8 +32,14 @@ import java.sql.SQLException;
 @Service
 @Transactional
 public class ForumService extends DBConnect {
+    JdbcTemplate template;
 
     @Autowired
+    public ForumService(DataSource dataSource, JdbcTemplate template) {
+        DBConnect.dataSource = dataSource;
+        this.template = template;
+    }
+
     public ForumService(DataSource dataSource) {
         DBConnect.dataSource = dataSource;
     }
@@ -37,39 +47,20 @@ public class ForumService extends DBConnect {
 
     public Forum getForumInfo(String slug) {
         try {
-            return PrepareQuery.execute("SELECT slug, title, admin FROM Forum " +
+            return PrepareQuery.execute("SELECT slug, title, admin, messages, threads " +
+                            "FROM Forum " +
                             "WHERE lower(slug) = lower(?)",
                     prepareStatement -> {
                         prepareStatement.setString(1, slug);
                         final ResultSet resultSet = prepareStatement.executeQuery();
                         resultSet.next();
-                        return new Forum(resultSet.getString(1),
+                        final Forum forum = new Forum(resultSet.getString(1),
                                 resultSet.getString(2), resultSet.getString(3));
-                    });
-        } catch (SQLException n) {
-            n.printStackTrace();
-            return null;
-        }
-    }
-
-    public Forum getFullForum(String slug) {
-        final Forum forum;
-        if ((forum = getForumInfo(slug)) == null) {
-            return null;
-        }
-        try {
-            return PrepareQuery.execute("SELECT messages, threads FROM Forum " +
-                            "WHERE lower(slug) = lower(?) ",
-                    prepareStatement -> {
-                        prepareStatement.setString(1, slug);
-                        final ResultSet resultSet = prepareStatement.executeQuery();
-                        resultSet.next();
-                        forum.setPosts(BigDecimal.valueOf(resultSet.getInt(1)));
-                        forum.setThreads(BigDecimal.valueOf(resultSet.getInt(2)));
+                        forum.setPosts(BigDecimal.valueOf(resultSet.getInt(4)));
+                        forum.setThreads(BigDecimal.valueOf(resultSet.getInt(5)));
                         return forum;
                     });
-        } catch (SQLException e) {
-            e.printStackTrace();
+        } catch (SQLException n) {
             return null;
         }
     }
@@ -101,7 +92,7 @@ public class ForumService extends DBConnect {
     }
 
 
-    public ResponseEntity userList(String slug, Double limit, String since, Boolean desc) {
+    public ResponseEntity userList(String slug, Integer limit, String since, Boolean desc) {
 
         if (getForumInfo(slug) == null) {
             return new ResponseEntity(Error.getErrorJson("Forum not found"), HttpStatus.NOT_FOUND);
@@ -110,21 +101,20 @@ public class ForumService extends DBConnect {
             String strSince = "";
             if (since != null)
                 if (desc)
-                    strSince = " and nickname < '" + since + "' ";
-                else strSince = " and nickname > '" + since + "' ";
+                    strSince = " and LOWER(nickname COLLATE \"ucs_basic\") < LOWER(? COLLATE \"ucs_basic\") ";
+                else strSince = " and LOWER(nickname COLLATE \"ucs_basic\") > LOWER(? COLLATE \"ucs_basic\") ";
             String strLimit = "";
             if (limit != null)
-                strLimit = " LIMIT " + limit.intValue();
-            String strSort = " ASC ";
+                strLimit = " LIMIT " + limit;
+            String strSort = " ORDER BY LOWER(nickname COLLATE \"ucs_basic\") ASC ";
             if (desc)
-                strSort = " DESC ";
-            return PrepareQuery.execute("SELECT U.* FROM FUser as U " +
-                            "WHERE U.nickname IN " +
-                            "(SELECT DISTINCT nickname FROM Forum_users " +
-                            " WHERE lower(forum) = lower(?) " + strSince + " ORDER BY nickname "
-                            + strSort + strLimit + ") " ,//+ " ORDER BY U.nickname " + strSort,
+                strSort = "  ORDER BY LOWER(nickname COLLATE \"ucs_basic\") DESC ";
+            return PrepareQuery.execute("SELECT * FROM FUser WHERE nickname IN " +
+                            "(SELECT nickname FROM Forum_users WHERE LOWER(forum) = LOWER(?)) "
+                    + strSince + strSort + strLimit,
                     preparedStatement -> {
                         preparedStatement.setString(1, slug);
+                        if(since != null) preparedStatement.setString(2, since);
                         final ResultSet result = preparedStatement.executeQuery();
                         final ObjectMapper mapp = new ObjectMapper();
                         final ArrayNode arrayNode = mapp.createArrayNode();
@@ -136,7 +126,6 @@ public class ForumService extends DBConnect {
                         return new ResponseEntity(arrayNode, HttpStatus.OK);
                     });
         } catch (SQLException n) {
-            n.printStackTrace();
             final ObjectMapper mapp = new ObjectMapper();
             final ArrayNode arrayNode = mapp.createArrayNode();
             return new ResponseEntity(arrayNode, HttpStatus.OK);
@@ -144,7 +133,7 @@ public class ForumService extends DBConnect {
     }
 
 
-    public ResponseEntity threadList(String slug, Double limit, String since, Boolean desc) {
+    public ResponseEntity threadList(String slug, Integer limit, String since, Boolean desc) {
         final Forum forum;
         if ((forum = getForumInfo(slug)) == null) {
             return new ResponseEntity(Error.getErrorJson("Forum not found"), HttpStatus.NOT_FOUND);
@@ -153,17 +142,17 @@ public class ForumService extends DBConnect {
             String strSince = "";
             if (since != null) {
                 if (desc)
-                    strSince = "  and create_date <= '" + since + '\'';
-                else strSince = "  and create_date >= '" + since + '\'';
+                    strSince = String.format(" AND create_date <= '%s'", since);
+                else strSince = String.format(" AND create_date >= '%s'", since);
             }
             String strLimit = "";
             if (limit != null)
-                strLimit = " LIMIT " + limit;
-            String strSort = "ASC";
+                strLimit = String.format(" LIMIT '%s'; ", limit);
+            String strSort = " ORDER BY create_date ";
             if (desc)
-                strSort = " DESC";
+                strSort = " ORDER BY create_date DESC ";
             return PrepareQuery.execute("SELECT * FROM Thread WHERE lower(forum) = lower(?)"
-                            + strSince + " ORDER BY create_date " + strSort + strLimit,
+                            + strSince + strSort + strLimit,
                     preparedStatement -> {
                         preparedStatement.setString(1, forum.getSlug());
                         final ResultSet resultSet = preparedStatement.executeQuery();
@@ -176,16 +165,17 @@ public class ForumService extends DBConnect {
                                     resultSet.getString(4), s);
                             thread.setForum(forum.getSlug());
                             thread.setId(resultSet.getInt(7));
+                            thread.setVotes(resultSet.getInt(8));
                             arrayNode.add(thread.getThreadJson());
                         }
                         return new ResponseEntity(arrayNode, HttpStatus.OK);
                     });
         } catch (SQLException n) {
-            n.printStackTrace();
             final ObjectMapper mapp = new ObjectMapper();
             final ObjectNode node = mapp.createObjectNode();
             node.putNull("users");
             return new ResponseEntity(node, HttpStatus.OK);
         }
     }
+
 }

@@ -3,11 +3,8 @@ package ru.mail.park.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mail.park.db.*;
@@ -98,6 +95,10 @@ public class UserService extends DBConnect{
         final User user;
         if((user = getUserInfo(login)) == null)
             return new ResponseEntity(Error.getErrorJson("User not found"), HttpStatus.NOT_FOUND);
+        if(user.getAbout().equals(body.getAbout()) &&
+                user.getEmail().equals(body.getEmail()) &&
+                user.getFullname().equals(body.getFullname()))
+            return new ResponseEntity(user.getUserJson(), HttpStatus.OK);
         try {
             return PrepareQuery.execute("UPDATE FUser SET (about, email,fullname) = (?,?,?) " +
                             "WHERE lower(nickname) = lower(?)",

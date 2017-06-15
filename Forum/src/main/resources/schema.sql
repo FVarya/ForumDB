@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS FUser(
   fullname citext,
   about citext
 );
+CREATE INDEX IF NOT EXISTS idx_user_nickname ON fuser (lower(nickname));
 
 CREATE TABLE IF NOT EXISTS Forum(
   slug citext NOT NULL PRIMARY KEY,
@@ -18,6 +19,7 @@ CREATE TABLE IF NOT EXISTS Forum(
 );
 
 CREATE INDEX IF NOT EXISTS idx_forums_admin ON Forum (lower(admin));
+CREATE INDEX IF NOT EXISTS idx_forums_slug ON Forum (lower(slug)) ;
 
 CREATE TABLE IF NOT EXISTS Thread(
   author citext NOT NULL,
@@ -33,8 +35,8 @@ CREATE TABLE IF NOT EXISTS Thread(
 );
 
 
-CREATE INDEX IF NOT EXISTS idx_thread_author ON Thread (lower(author));
-CREATE INDEX IF NOT EXISTS idx_thread_forum ON Thread (lower(forum));
+-- CREATE INDEX IF NOT EXISTS idx_thread_author ON Thread (lower(author));
+CREATE INDEX IF NOT EXISTS idx_thread_forum ON Thread (lower(forum), create_date);
 CREATE INDEX IF NOT EXISTS idx_thread_slug ON Thread (LOWER(slug));
 
 CREATE TABLE IF NOT EXISTS Message(
@@ -52,11 +54,11 @@ CREATE TABLE IF NOT EXISTS Message(
   FOREIGN KEY (forum) REFERENCES Forum (slug) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_message_author ON Message (lower(author));
-CREATE INDEX IF NOT EXISTS idx_message_thread_id ON Message (thread_id);
-CREATE INDEX IF NOT EXISTS idx_message_path ON Message ((path[1]));
-CREATE INDEX IF NOT EXISTS idx_posts_get ON Message (message_id, thread_id);
-CREATE INDEX IF NOT EXISTS idx_message_parents ON Message(message_id, parent_id, thread_id);
+-- CREATE INDEX IF NOT EXISTS idx_message_author ON Message (lower(author));
+-- CREATE INDEX IF NOT EXISTS idx_message_thread_id ON Message (thread_id);
+CREATE INDEX IF NOT EXISTS idx_message_path ON Message ((path[1]), thread_id, message_id);
+CREATE INDEX IF NOT EXISTS idx_posts_get ON Message (thread_id, message_id );
+CREATE INDEX IF NOT EXISTS idx_message_parents ON Message(parent_id, thread_id,message_id);
 CREATE INDEX IF NOT EXISTS idx_message_flat ON Message (thread_id, create_date, message_id);
 CREATE INDEX IF NOT EXISTS idx_message_tree ON Message (thread_id, path);
 
@@ -73,16 +75,19 @@ CREATE INDEX IF NOT EXISTS idx_like_thread_id ON TLike (thread_id);
 CREATE TABLE IF NOT EXISTS Forum_users (
   nickname  citext NOT NULL,
   forum citext NOT NULL
+--   UNIQUE (nickname, forum)
 --   FOREIGN KEY (nickname) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE,
 --   FOREIGN KEY (forum) REFERENCES Forum (slug) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 -- CREATE INDEX IF NOT EXISTS idx_forum_users_nickname ON Forum_users (nickname);
--- CREATE INDEX IF NOT EXISTS idx_forum_users_forum ON Forum_users (forum);
+-- CREATE UNIQUE INDEX ON Forum_users (nickname, forum) ;
+CREATE INDEX IF NOT EXISTS idx_forum_users_forum ON Forum_users (lower(forum));
 
 
 CREATE OR REPLACE FUNCTION add_forum_users() RETURNS TRIGGER AS '
 BEGIN
   INSERT INTO Forum_users (nickname, forum) VALUES (NEW.author, NEW.forum);
+--   ON CONFLICT (nickname, forum) DO NOTHING ;
   RETURN NEW;
 END;
 ' LANGUAGE plpgsql;

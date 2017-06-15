@@ -38,7 +38,7 @@ public class ForumController {
     @GetMapping("/api/forum/{slug}/details")
     public ResponseEntity getForumInfo(@PathVariable("slug") String slug){
         final Forum forum;
-        if((forum = forumService.getFullForum(slug)) != null) {
+        if((forum = forumService.getForumInfo(slug)) != null) {
             return new ResponseEntity(forum.getForumJson(), HttpStatus.OK);
         }
         return new ResponseEntity(Error.getErrorJson("Forum not found"), NOT_FOUND);
@@ -46,7 +46,7 @@ public class ForumController {
 
     @GetMapping("/api/forum/{slug}/users")
     public ResponseEntity getUserForum(@PathVariable("slug") String slug,
-                                   @RequestParam(value = "limit", required = false) Double limit ,
+                                   @RequestParam(value = "limit", required = false) Integer limit ,
                                    @RequestParam(value = "since", required = false) String since,
                                    @RequestParam(value = "desc", required = false) String desc){
         boolean sort = false;

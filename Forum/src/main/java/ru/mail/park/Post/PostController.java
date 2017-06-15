@@ -49,6 +49,7 @@ public class PostController {
             arrayNode = postService.createPosts(slug_or_id, id, posts);
         }
         catch (SQLException e){
+            e.printStackTrace();
             if(e.getMessage().equals("Not found")){
                 return new ResponseEntity(Error.getErrorJson("Not found"), NOT_FOUND);
             }

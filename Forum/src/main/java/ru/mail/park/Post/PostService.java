@@ -149,9 +149,9 @@ public class PostService extends DBConnect {
 
     public void addForumUsers(String forum,Post[] posts) throws SQLException {
         PrepareQuery.execute("INSERT INTO Forum_users (nickname, forum) " +
-                        "VALUES (?,?)",
+                        "VALUES (?,?)",// ON CONFLICT (nickname, forum) DO NOTHING",
                 preparedStatement -> {
-                    for (Post post : posts) {
+                    for(Post post: posts) {
                         preparedStatement.setString(1, post.getAuthor());
                         preparedStatement.setString(2, forum);
                         preparedStatement.addBatch();
@@ -183,11 +183,15 @@ public class PostService extends DBConnect {
         return parents;
     }
 
-    private BigDecimal messIdSeq() throws SQLException {
-        return SelectQuery.execute("SELECT nextval('message_message_id_seq')",
-                result->{
-                    result.next();
-                    return result.getBigDecimal(1);
+    private List<BigDecimal> messIdSeq(int num) throws SQLException {
+        return PrepareQuery.execute("SELECT nextval('message_message_id_seq') from generate_series(1, ?);",
+                preparedStatement->{
+                    preparedStatement.setInt(1, num);
+                    final List<BigDecimal> arr = new ArrayList<>();
+                    final ResultSet result = preparedStatement.executeQuery();
+                    while (result.next())
+                        arr.add(result.getBigDecimal(1));
+                    return arr;
                 });
     }
 
@@ -211,6 +215,8 @@ public class PostService extends DBConnect {
                         " path, forum, message_id ) " +
                         "VALUES (?,?,?,?,?,array_append(?, ?::INT8), ?, ? )",
                 preparedStatement -> {
+                    final List<BigDecimal> ids = messIdSeq(body.length);
+                    int i = 0;
                     for (Post post: body) {
                         preparedStatement.setInt(1, thread.getId());
                         preparedStatement.setString(2, post.getMessage());
@@ -235,7 +241,7 @@ public class PostService extends DBConnect {
                             final Timestamp t = Timestamp.valueOf(post.getCreated().toLocalDateTime());
                             preparedStatement.setTimestamp(4, t);
                         }
-                        post.setId(messIdSeq());
+                        post.setId(ids.get(i++));
                         preparedStatement.setBigDecimal(7, post.getId());
                         preparedStatement.setBigDecimal(9, post.getId());
                         preparedStatement.addBatch();
@@ -301,7 +307,7 @@ public class PostService extends DBConnect {
             }
             if (forum) {
                 final ForumService forumService = new ForumService(dataSource);
-                final Forum forum1 = forumService.getFullForum(post.getForum());
+                final Forum forum1 = forumService.getForumInfo(post.getForum());
                 node.set("forum", forum1.getForumJson());
 
             }
