@@ -47,6 +47,8 @@ import java.util.stream.Collectors;
 public class PostService extends DBConnect {
     private Double marker;
     private JdbcTemplate template;
+    private ForumService forumService;
+    private ThreadService threadService;
 
     //@Autowired
     public PostService(DataSource dataSource) {
@@ -54,9 +56,11 @@ public class PostService extends DBConnect {
     }
 
     @Autowired
-    public PostService(DataSource dataSource, JdbcTemplate template) {
+    public PostService(DataSource dataSource, JdbcTemplate template, ForumService forumService, ThreadService threadService) {
         DBConnect.dataSource = dataSource;
         this.template = template;
+        this.forumService = forumService;
+        this.threadService = threadService;
     }
 
     private static final RowMapper<Post> postMapper = (rs, num) -> {
@@ -135,7 +139,6 @@ public class PostService extends DBConnect {
     public ResponseEntity getPostInfo(String slug, String sort,
                                       Integer id, Integer limit, Integer offset, boolean desc) {
         try {
-            final ThreadService threadService = new ThreadService(dataSource);
             final Thread thread;
             if((thread = threadService.getFullThread(slug, id)) == null)
                 throw new SQLException("Thread not found");
@@ -150,7 +153,6 @@ public class PostService extends DBConnect {
                                     (desc ? "DESC " : "ASC ") + "LIMIT ? OFFSET ?;",
                             thread.getId(), limit, offset, false);
                 case "parent_tree":
-                    final String s = "M.thread_id = " + thread.getId();
                     return getPostsSort("SELECT M.author, M.create_date, M.forum, M.message_id, M.is_edit, " +
                                     "M.message, M.parent_id,  M.thread_id, path " +
                                     "FROM Message M " +
@@ -228,7 +230,6 @@ public class PostService extends DBConnect {
         final ArrayNode arrayNode = mapp.createArrayNode();
         final ZonedDateTime postTime = ZonedDateTime.now();
 
-        final ThreadService threadService = new ThreadService(dataSource);
         final Thread thread;
         if((thread = threadService.getFullThread(thread_slug, thread_id)) == null)
             throw new SQLException("Not found");
@@ -306,6 +307,9 @@ public class PostService extends DBConnect {
 
     @SuppressWarnings("OverlyComplexMethod")
     public ResponseEntity getPostRelated(Integer id, String[] related) {
+        final Post post = getPost(id);
+        if(post == null)
+            return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
         final ObjectMapper map = new ObjectMapper();
         final ObjectNode node = map.createObjectNode();
         boolean user = false;
@@ -325,9 +329,6 @@ public class PostService extends DBConnect {
             }
         }
         //try {
-            final Post post = getPost(id);
-            if(post == null)
-                return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
             node.set("post", post.getPostJson());
             if (user) {
                 final UserService userService = new UserService(dataSource);
@@ -335,13 +336,11 @@ public class PostService extends DBConnect {
                 node.set("author", user1.getUserJson());
             }
             if (forum) {
-                final ForumService forumService = new ForumService(dataSource);
                 final Forum forum1 = forumService.getForumInfo(post.getForum());
                 node.set("forum", forum1.getForumJson());
 
             }
             if (thread) {
-                final ThreadService threadService = new ThreadService(dataSource);
                 final Thread thread1 = threadService.getFullThread(null, post.getThread_id());
                 node.set("thread", thread1.getThreadJson());
             }

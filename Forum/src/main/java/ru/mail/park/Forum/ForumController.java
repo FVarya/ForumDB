@@ -48,12 +48,11 @@ public class ForumController {
     public ResponseEntity getUserForum(@PathVariable("slug") String slug,
                                    @RequestParam(value = "limit", required = false) Integer limit ,
                                    @RequestParam(value = "since", required = false) String since,
-                                   @RequestParam(value = "desc", required = false) String desc){
-        boolean sort = false;
-        if(desc != null && desc.equals("true")){
-            sort = true;
+                                   @RequestParam(value = "desc", required = false) boolean desc){
+        if (forumService.getForumInfo(slug) == null) {
+            return new ResponseEntity(Error.getErrorJson("Forum not found"), HttpStatus.NOT_FOUND);
         }
-        return forumService.userList(slug, limit, since, sort);
+        return ResponseEntity.ok(forumService.userList(slug, limit, since, desc));
     }
 
     @GetMapping("/api/forum/{slug}/threads")

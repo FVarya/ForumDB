@@ -16,8 +16,8 @@ public class Forum {
     private String title;
     private String admin;
 
-    private BigDecimal posts;
-    private BigDecimal threads;
+    private Integer posts;
+    private Integer threads;
 
     private ObjectMapper map = new ObjectMapper();
 
@@ -53,9 +53,9 @@ public class Forum {
         this.admin = admin;
     }
 
-    public void setPosts(BigDecimal posts){ this.posts = posts; }
+    public void setPosts(Integer posts){ this.posts = posts; }
 
-    public void setThreads(BigDecimal threads){ this.threads = threads; }
+    public void setThreads(Integer threads){ this.threads = threads; }
 
     public ObjectNode getForumJson(){
         final ObjectNode node = map.createObjectNode();

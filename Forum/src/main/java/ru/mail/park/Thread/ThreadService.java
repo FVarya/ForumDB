@@ -33,9 +33,11 @@ import java.util.List;
 @Service
 @Transactional
 public class ThreadService extends DBConnect {
+    ForumService forumService;
     @Autowired
-    public ThreadService(DataSource dataSource) {
+    public ThreadService(DataSource dataSource, ForumService forumService) {
         DBConnect.dataSource = dataSource;
+        this.forumService = forumService;
     }
 
     public Thread getFullThread(String slug, Integer t_id){
@@ -76,7 +78,6 @@ public class ThreadService extends DBConnect {
     }
 
     public ResponseEntity createThread(String slug, Thread body) {
-        final ForumService forumService = new ForumService(dataSource);
         final Forum forum;
         if ((forum = forumService.getForumInfo(slug)) == null)
             return new ResponseEntity(Error.getErrorJson("Forum not found"), HttpStatus.NOT_FOUND);

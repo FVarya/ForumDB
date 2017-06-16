@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -22,6 +23,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -45,24 +47,21 @@ public class ForumService extends DBConnect {
     }
 
 
+    private static final RowMapper<Forum> forumMapper = (resultSet, rowNum) -> {
+        final Forum forum = new Forum(resultSet.getString(1),
+                resultSet.getString(2), resultSet.getString(3));
+        forum.setPosts(resultSet.getInt(4));
+        forum.setThreads(resultSet.getInt(5));
+        return forum;
+    };
+
     public Forum getForumInfo(String slug) {
-        try {
-            return PrepareQuery.execute("SELECT slug, title, admin, messages, threads " +
-                            "FROM Forum " +
-                            "WHERE lower(slug) = lower(?)",
-                    prepareStatement -> {
-                        prepareStatement.setString(1, slug);
-                        final ResultSet resultSet = prepareStatement.executeQuery();
-                        resultSet.next();
-                        final Forum forum = new Forum(resultSet.getString(1),
-                                resultSet.getString(2), resultSet.getString(3));
-                        forum.setPosts(BigDecimal.valueOf(resultSet.getInt(4)));
-                        forum.setThreads(BigDecimal.valueOf(resultSet.getInt(5)));
-                        return forum;
-                    });
-        } catch (SQLException n) {
-            return null;
+        try{
+            final String sql = String.format("SELECT slug, title, admin, messages, threads FROM Forum WHERE lower(slug) = lower('%s')", slug);
+            return template.queryForObject(sql, forumMapper);
         }
+        catch (DataAccessException ignored){}
+        return null;
     }
 
 
@@ -92,44 +91,28 @@ public class ForumService extends DBConnect {
     }
 
 
-    public ResponseEntity userList(String slug, Integer limit, String since, Boolean desc) {
+    private static final RowMapper<User> userMapper = (result, rowNum) -> new User(result.getString(1), result.getString(2),
+            result.getString(3),result.getString(4));
 
-        if (getForumInfo(slug) == null) {
-            return new ResponseEntity(Error.getErrorJson("Forum not found"), HttpStatus.NOT_FOUND);
-        }
-        try {
-            String strSince = "";
-            if (since != null)
-                if (desc)
-                    strSince = " and LOWER(nickname COLLATE \"ucs_basic\") < LOWER(? COLLATE \"ucs_basic\") ";
-                else strSince = " and LOWER(nickname COLLATE \"ucs_basic\") > LOWER(? COLLATE \"ucs_basic\") ";
-            String strLimit = "";
-            if (limit != null)
-                strLimit = " LIMIT " + limit;
-            String strSort = " ORDER BY LOWER(nickname COLLATE \"ucs_basic\") ASC ";
+
+    public List<User> userList(String slug, Integer limit, String since, Boolean desc) {
+        final StringBuilder sb = new StringBuilder("SELECT * FROM FUser WHERE nickname IN (SELECT nickname FROM Forum_users WHERE LOWER(forum) = LOWER(?))");
+        final List<Object> args = new ArrayList<>();
+        args.add(slug);
+        if (since != null) {
             if (desc)
-                strSort = "  ORDER BY LOWER(nickname COLLATE \"ucs_basic\") DESC ";
-            return PrepareQuery.execute("SELECT * FROM FUser WHERE nickname IN " +
-                            "(SELECT nickname FROM Forum_users WHERE LOWER(forum) = LOWER(?)) "
-                    + strSince + strSort + strLimit,
-                    preparedStatement -> {
-                        preparedStatement.setString(1, slug);
-                        if(since != null) preparedStatement.setString(2, since);
-                        final ResultSet result = preparedStatement.executeQuery();
-                        final ObjectMapper mapp = new ObjectMapper();
-                        final ArrayNode arrayNode = mapp.createArrayNode();
-                        while (result.next()) {
-                            final User user = new User(result.getString(1), result.getString(2)
-                                    , result.getString(3), result.getString(4));
-                            arrayNode.add(user.getUserJson());
-                        }
-                        return new ResponseEntity(arrayNode, HttpStatus.OK);
-                    });
-        } catch (SQLException n) {
-            final ObjectMapper mapp = new ObjectMapper();
-            final ArrayNode arrayNode = mapp.createArrayNode();
-            return new ResponseEntity(arrayNode, HttpStatus.OK);
+                sb.append(" and LOWER(nickname COLLATE \"ucs_basic\") < LOWER(? COLLATE \"ucs_basic\") ");
+            else sb.append(" and LOWER(nickname COLLATE \"ucs_basic\") > LOWER(? COLLATE \"ucs_basic\") ");
+            args.add(since);
         }
+        if(!desc) sb.append(" ORDER BY LOWER(nickname COLLATE \"ucs_basic\") ASC ");
+        else sb.append("  ORDER BY LOWER(nickname COLLATE \"ucs_basic\") DESC ");
+        if (limit != null) {
+            sb.append(" LIMIT ");
+            sb.append(limit);
+        }
+        return template.query(sb.toString(), userMapper, args.toArray());
+
     }
 
 
