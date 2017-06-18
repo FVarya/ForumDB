@@ -8,7 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mail.park.Error.Error;
@@ -20,37 +19,29 @@ import ru.mail.park.User.User;
 import ru.mail.park.User.UserService;
 import ru.mail.park.db.DBConnect;
 import ru.mail.park.db.PrepareQuery;
-import ru.mail.park.db.SelectQuery;
 
 import javax.sql.DataSource;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.sql.*;
-import java.text.SimpleDateFormat;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 /**
  * Created by Варя on 21.03.2017.
  */
-@SuppressWarnings({"JDBCResourceOpenedButNotSafelyClosed", "MethodParameterNamingConvention", "LocalVariableNamingConvention"})
+@SuppressWarnings({"JDBCResourceOpenedButNotSafelyClosed", "MethodParameterNamingConvention", "LocalVariableNamingConvention", "ConstantNamingConvention"})
 @Service
 @Transactional
 public class PostService extends DBConnect {
-    private Double marker;
     private JdbcTemplate template;
     private ForumService forumService;
     private ThreadService threadService;
 
-    //@Autowired
     public PostService(DataSource dataSource) {
         DBConnect.dataSource = dataSource;
     }
@@ -73,29 +64,12 @@ public class PostService extends DBConnect {
         return post;
     };
 
-//    private Post getPost(Integer id) throws SQLException{
-//        return PrepareQuery.execute("SELECT * FROM Message " +
-//                        "WHERE message_id = ?",
-//                preparedStatement -> {
-//                    preparedStatement.setInt(1, id);
-//                    final ResultSet resultSet = preparedStatement.executeQuery();
-//                    resultSet.next();
-//                    final String s = resultSet.getString(5).replace(' ', 'T') + ":00";
-//                    final Post post1 = new Post(resultSet.getInt(2), resultSet.getString(3),
-//                            resultSet.getString(4), s, resultSet.getBoolean(6),
-//                            resultSet.getInt(7));
-//                    post1.setId(resultSet.getInt(1));
-//                    post1.setForum(resultSet.getString(9));
-//                    return post1;
-//                });
-//    }
 
     public Post getPost(int id){
         try{
             final String sql = "SELECT * FROM message WHERE message_id = ?;";
             return template.queryForObject(sql, postMapper, id);
         } catch (Exception e){
-            //e.printStackTrace();
             return null;
         }
     }
@@ -110,7 +84,7 @@ public class PostService extends DBConnect {
                     final ObjectMapper mapp = new ObjectMapper();
                     final ObjectNode node = mapp.createObjectNode();
                     final ArrayNode arrayNode = mapp.createArrayNode();
-                    ArrayList<Integer> p1 = new ArrayList<>();
+                    final ArrayList<Integer> p1 = new ArrayList<>();
                     while (resultSet.next()) {
                         final String s = resultSet.getString(2).replace(' ', 'T') + ":00";
                         final Post post = new Post(resultSet.getInt(8),
@@ -126,7 +100,7 @@ public class PostService extends DBConnect {
                     }
                     Integer i = offset + arrayNode.size();
                     if(flag){
-                        List<Integer> u = p1.stream().distinct().collect(Collectors.toList());
+                        final List<Integer> u = p1.stream().distinct().collect(Collectors.toList());
                         i = offset + u.size();
                     }
                     node.put("marker", i.toString());
@@ -176,13 +150,13 @@ public class PostService extends DBConnect {
         }
     }
 
-    public void addForumUsers(String forum,Post[] posts) throws SQLException {
+    public void addForumUsers(List<Pair<String, String>> pairs) throws SQLException {
         PrepareQuery.execute("INSERT INTO Forum_users (nickname, forum) " +
-                        "VALUES (?,?)",// ON CONFLICT (nickname, forum) DO NOTHING",
+                        "VALUES (?,?)",
                 preparedStatement -> {
-                    for(Post post: posts) {
-                        preparedStatement.setString(1, post.getAuthor());
-                        preparedStatement.setString(2, forum);
+                    for(Pair<String, String> pair: pairs) {
+                        preparedStatement.setString(1, pair.getKey());
+                        preparedStatement.setString(2, pair.getValue());
                         preparedStatement.addBatch();
                     }
                     preparedStatement.executeBatch();
@@ -203,7 +177,7 @@ public class PostService extends DBConnect {
 
     public List<Post> checkParents(Post[] body, Thread thread) throws SQLException {
         final Integer[] unique =
-            Arrays.stream(body).map(Post::getParent).distinct().toArray(Integer[]::new);
+                Arrays.stream(body).map(Post::getParent).distinct().toArray(Integer[]::new);
         final List<Post> parents = new ArrayList<>();
         for(Integer parent: unique){
             if (parent != 0)
@@ -230,6 +204,7 @@ public class PostService extends DBConnect {
         final ArrayNode arrayNode = mapp.createArrayNode();
         final ZonedDateTime postTime = ZonedDateTime.now();
 
+
         final Thread thread;
         if((thread = threadService.getFullThread(thread_slug, thread_id)) == null)
             throw new SQLException("Not found");
@@ -243,9 +218,14 @@ public class PostService extends DBConnect {
                         " path, forum, message_id ) " +
                         "VALUES (?,?,?,?,?,array_append(?, ?::INT8), ?, ? )",
                 preparedStatement -> {
+                    final List<Pair<String, String>> userforums = new ArrayList<>();
                     final List<Integer> ids = messIdSeq(body.length);
                     int i = 0;
                     for (Post post: body) {
+                        final Pair<String, String> pair = new Pair<>(post.getAuthor(), thread.getForum());
+                        if (!userforums.contains(pair))
+                            userforums.add(pair);
+
                         preparedStatement.setInt(1, thread.getId());
                         preparedStatement.setString(2, post.getMessage());
                         preparedStatement.setString(3, post.getAuthor());
@@ -278,7 +258,7 @@ public class PostService extends DBConnect {
                         arrayNode.add(post.getPostJson());
                     }
                     preparedStatement.executeBatch();
-                    addForumUsers(thread.getForum(), body);
+                    addForumUsers(userforums);
                     updForumMessgs(thread.getForum(), body.length);
                     return arrayNode;
                 });
@@ -328,26 +308,22 @@ public class PostService extends DBConnect {
                 }
             }
         }
-        //try {
-            node.set("post", post.getPostJson());
-            if (user) {
-                final UserService userService = new UserService(dataSource);
-                final User user1 = userService.getUserInfo(post.getAuthor());
-                node.set("author", user1.getUserJson());
-            }
-            if (forum) {
-                final Forum forum1 = forumService.getForumInfo(post.getForum());
-                node.set("forum", forum1.getForumJson());
+        node.set("post", post.getPostJson());
+        if (user) {
+            final UserService userService = new UserService(dataSource);
+            final User user1 = userService.getUserInfo(post.getAuthor());
+            node.set("author", user1.getUserJson());
+        }
+        if (forum) {
+            final Forum forum1 = forumService.getForumInfo(post.getForum());
+            node.set("forum", forum1.getForumJson());
 
-            }
-            if (thread) {
-                final Thread thread1 = threadService.getFullThread(null, post.getThread_id());
-                node.set("thread", thread1.getThreadJson());
-            }
-            return new ResponseEntity(node, HttpStatus.OK);
-//        } catch (SQLException e) {
-//            return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
-//        }
+        }
+        if (thread) {
+            final Thread thread1 = threadService.getFullThread(null, post.getThread_id());
+            node.set("thread", thread1.getThreadJson());
+        }
+        return new ResponseEntity(node, HttpStatus.OK);
     }
 
     public ResponseEntity setPost(Integer id, Post body) {
@@ -370,6 +346,25 @@ public class PostService extends DBConnect {
             return new ResponseEntity(post.getPostJson(), HttpStatus.OK);
         } catch (SQLException n) {
             return new ResponseEntity(Error.getErrorJson("Post not found"), HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @SuppressWarnings("InstanceVariableNamingConvention")
+    public static class Pair<X, Y> {
+        private final X x;
+        private final Y y;
+
+        public Pair(X x, Y y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        public X getKey(){
+            return x;
+        }
+
+        public Y getValue(){
+            return y;
         }
     }
 

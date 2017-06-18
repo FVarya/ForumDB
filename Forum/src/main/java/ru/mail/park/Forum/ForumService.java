@@ -19,18 +19,16 @@ import ru.mail.park.db.DBConnect;
 import ru.mail.park.db.PrepareQuery;
 
 import javax.sql.DataSource;
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
  * Created by Варя on 14.03.2017.
  */
 
-@SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
+@SuppressWarnings({"JDBCResourceOpenedButNotSafelyClosed", "ConstantNamingConvention"})
 @Service
 @Transactional
 public class ForumService extends DBConnect {
@@ -94,9 +92,9 @@ public class ForumService extends DBConnect {
     private static final RowMapper<User> userMapper = (result, rowNum) -> new User(result.getString(1), result.getString(2),
             result.getString(3),result.getString(4));
 
-
+    static final String getUserListSQL = "SELECT * FROM FUser WHERE nickname IN (SELECT nickname FROM Forum_users WHERE LOWER(forum) = LOWER(?))";
     public List<User> userList(String slug, Integer limit, String since, Boolean desc) {
-        final StringBuilder sb = new StringBuilder("SELECT * FROM FUser WHERE nickname IN (SELECT nickname FROM Forum_users WHERE LOWER(forum) = LOWER(?))");
+        final StringBuilder sb = new StringBuilder(getUserListSQL);
         final List<Object> args = new ArrayList<>();
         args.add(slug);
         if (since != null) {

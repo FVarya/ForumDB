@@ -6,15 +6,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
  * Created by Варя on 21.03.2017.
  */
-@SuppressWarnings({"InstanceMethodNamingConvention", "MethodParameterNamingConvention"})
+@SuppressWarnings({"InstanceMethodNamingConvention", "MethodParameterNamingConvention", "InstanceVariableNamingConvention"})
 public class Post {
     private Integer id;
     private Integer thread_id;
@@ -47,10 +47,7 @@ public class Post {
         this.created = created;
     }
 
-    @JsonIgnore
     public ZonedDateTime getCreated(){return created;}
-
-    public String getCreate(){return created.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);}
 
     public String getMessage () {return this.message;}
 
@@ -92,7 +89,7 @@ public class Post {
         node.put("isEdited", this.is_edit);
         node.put("message", this.message);
         node.put("thread", this.thread_id);
-        if(parent.intValue() != 0) node.put("parent", this.parent.intValue());
+        if(parent != 0) node.put("parent", this.parent.intValue());
         return node;
     }
 
@@ -102,5 +99,20 @@ public class Post {
         if (o == null || getClass() != o.getClass()) return false;
         final Post post = (Post) o;
         return Objects.equals(post.id, id);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id != null ? id.hashCode() : 0;
+        result = 31 * result + (thread_id != null ? thread_id.hashCode() : 0);
+        result = 31 * result + (parent != null ? parent.hashCode() : 0);
+        result = 31 * result + (message != null ? message.hashCode() : 0);
+        result = 31 * result + (author != null ? author.hashCode() : 0);
+        result = 31 * result + (forum != null ? forum.hashCode() : 0);
+        result = 31 * result + (created != null ? created.hashCode() : 0);
+        result = 31 * result + (is_edit != null ? is_edit.hashCode() : 0);
+        result = 31 * result + Arrays.hashCode(Path);
+        result = 31 * result + (map != null ? map.hashCode() : 0);
+        return result;
     }
 }

@@ -1,25 +1,14 @@
 package ru.mail.park.Post;
 
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.constraints.NotNull;
-import java.math.BigDecimal;
-import java.sql.BatchUpdateException;
 import java.sql.SQLException;
-import java.util.List;
-import java.util.Objects;
-
 import ru.mail.park.Error.Error;
-import ru.mail.park.Forum.Forum;
-import ru.mail.park.Thread.Thread;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -75,11 +64,6 @@ public class PostController {
         return postService.getPostInfo(slug_or_id, sort, id, limit, offset , desc);
     }
 
-
-
-    public static boolean isNumeric(String slugOrId) {
-        return slugOrId.matches("\\d+");
-    }
 
     @GetMapping("api/post/{id}/details")
     public ResponseEntity getPost(@PathVariable("id")Integer id,

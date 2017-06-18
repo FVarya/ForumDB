@@ -5,14 +5,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.mail.park.Error.Error;
-import ru.mail.park.Thread.Thread;
-
-import java.sql.Timestamp;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 

@@ -12,7 +12,6 @@ import ru.mail.park.db.*;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List;
 
 import ru.mail.park.Error.Error;
 import javax.sql.DataSource;

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS FUser(
   fullname citext,
   about citext
 );
-CREATE INDEX IF NOT EXISTS idx_user_nickname ON fuser (lower(nickname));
+CREATE INDEX IF NOT EXISTS idx_user_nickname ON fuser (lower(nickname COLLATE "ucs_basic"));
 
 CREATE TABLE IF NOT EXISTS Forum(
   slug citext NOT NULL PRIMARY KEY,
@@ -18,8 +18,7 @@ CREATE TABLE IF NOT EXISTS Forum(
   FOREIGN KEY (admin) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_forums_admin ON Forum (lower(admin));
-CREATE INDEX IF NOT EXISTS idx_forums_slug ON Forum (lower(slug)) ;
+CREATE INDEX IF NOT EXISTS idx_forum_slug ON Forum (lower(slug)) ;
 
 CREATE TABLE IF NOT EXISTS Thread(
   author citext NOT NULL,
@@ -72,17 +71,12 @@ CREATE INDEX IF NOT EXISTS idx_like_thread_id ON TLike (thread_id);
 CREATE TABLE IF NOT EXISTS Forum_users (
   nickname  citext NOT NULL,
   forum citext NOT NULL
---   UNIQUE (nickname, forum)
---   FOREIGN KEY (nickname) REFERENCES FUser (nickname) ON DELETE RESTRICT ON UPDATE CASCADE,
---   FOREIGN KEY (forum) REFERENCES Forum (slug) ON DELETE RESTRICT ON UPDATE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_forum_users_forum ON Forum_users (lower(forum));
--- CREATE INDEX IF NOT EXISTS idx_forum_users_both ON forum_users (lower(forum), nickname);
+CREATE INDEX IF NOT EXISTS idx_forum_users_both ON forum_users (lower(forum), nickname);
 
 CREATE OR REPLACE FUNCTION add_forum_users() RETURNS TRIGGER AS '
 BEGIN
   INSERT INTO Forum_users (nickname, forum) VALUES (NEW.author, NEW.forum);
---   ON CONFLICT (nickname, forum) DO NOTHING ;
   RETURN NEW;
 END;
 ' LANGUAGE plpgsql;
